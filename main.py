@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from typing import List
+
 from claim_extractor import extract_and_analyze
 from market_data import extract_tickers, get_market_context
 from scorer import calculate_trust_score, get_trust_level
@@ -40,8 +42,8 @@ class ClaimResponse(BaseModel):
 class AnalyzeResponse(BaseModel):
     trust_score: int
     trust_level: str
-    claims: list[ClaimResponse]
-    flags: list[str]
+    claims: List[ClaimResponse]
+    flags: List[str]
     explanation: str
 
 

@@ -30,7 +30,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your API keys
-python main.py
+python3 main.py
 ```
 
 The API runs at `http://localhost:8000`. Check `http://localhost:8000/health` to verify.
