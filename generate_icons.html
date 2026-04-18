@@ -1,0 +1,34 @@
+<!-- Open this file in a browser to generate icon PNGs -->
+<!-- Right-click each canvas and "Save image as" with the correct filename -->
+<!DOCTYPE html>
+<html>
+<body>
+  <h3>Right-click each icon → Save Image As → save to this folder</h3>
+  <p>icon16.png:</p>
+  <canvas id="c16" width="16" height="16"></canvas>
+  <p>icon48.png:</p>
+  <canvas id="c48" width="48" height="48"></canvas>
+  <p>icon128.png:</p>
+  <canvas id="c128" width="128" height="128"></canvas>
+
+  <script>
+    function drawIcon(canvasId, size) {
+      const c = document.getElementById(canvasId);
+      const ctx = c.getContext('2d');
+      // Background circle
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+      ctx.fill();
+      // Shield emoji
+      ctx.font = `${size * 0.6}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🛡️', size/2, size/2);
+    }
+    drawIcon('c16', 16);
+    drawIcon('c48', 48);
+    drawIcon('c128', 128);
+  </script>
+</body>
+</html>
