@@ -51,10 +51,17 @@ async def extract_and_analyze(text: str, author: str, market_data: Optional[List
         for md in market_data:
             market_context += f"- {md['ticker']}: ${md['price']:.2f} ({md['change_percent']} today)\n"
 
+    # Truncate long text to keep LLM fast and focused
+    truncated_text = text[:2000] if len(text) > 2000 else text
+
     user_message = f"""Analyze this social media post about finance/investing:
 
 Author: @{author}
+<<<<<<< HEAD
 Post: "{text[:2000]}"
+=======
+Post: "{truncated_text}"
+>>>>>>> 7c67eb9 (Major modifications concerning load times, functionality, API usage, working indicators, and more.)
 {market_context}
 Extract claims, identify red flags, and assess trustworthiness."""
 

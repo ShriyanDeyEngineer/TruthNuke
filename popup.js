@@ -27,6 +27,7 @@ let analysisResults = [];
 let currentTabId = null;
 let loadingStartTime = null;
 let loadingTimerInterval = null;
+let loadingProgressInterval = null;
 
 // ── Initialize ──
 async function init() {
@@ -35,7 +36,6 @@ async function init() {
   await loadStoredData();
   listenForUpdates();
   setupSettings();
-  setupManualAnalyze();
 }
 
 // ── Tab Navigation ──
@@ -66,7 +66,6 @@ async function detectPlatformStatus() {
     pill.querySelector(".status-text").textContent = "Active";
     label.textContent = `Monitoring ${match.icon} ${match.name}`;
 
-    // Ping content script to confirm it's running
     try {
       const response = await chrome.tabs.sendMessage(currentTabId, { type: "PING" });
       if (response?.status === "alive") {
@@ -85,15 +84,27 @@ async function detectPlatformStatus() {
 
 // ── Load Stored Analysis Data ──
 async function loadStoredData() {
-  const data = await chrome.storage.local.get(["analysisResults", "autoAnalyze", "showAll", "apiUrl"]);
+  const data = await chrome.storage.local.get(["analysisResults", "apiUrl", "lastResult", "lastStatus"]);
   analysisResults = data.analysisResults || [];
   renderStats();
   renderFeed();
   renderDistribution();
 
-  // Settings
-  document.getElementById("autoAnalyze").checked = data.autoAnalyze !== false;
-  document.getElementById("showAll").checked = data.showAll === true;
+  // Restore the most recent result if popup was closed during analysis
+  if (data.lastResult) {
+    showCurrentPost(data.lastResult);
+  }
+
+  // Restore loading/error state if analysis was in progress
+  if (data.lastStatus) {
+    if (data.lastStatus.type === "ANALYSIS_LOADING") {
+      showLoadingState(data.lastStatus.data);
+    } else if (data.lastStatus.type === "ANALYSIS_ERROR") {
+      showErrorState(data.lastStatus.data);
+    }
+    chrome.storage.local.remove("lastStatus");
+  }
+
   document.getElementById("apiUrl").value = data.apiUrl || "http://localhost:8000";
 }
 
@@ -105,13 +116,10 @@ function listenForUpdates() {
     }
     if (msg.type === "ANALYSIS_RESULT") {
       hideLoadingState();
-      // Add to front of list
+      chrome.storage.local.remove("lastStatus");
       analysisResults.unshift(msg.data);
-      // Keep max 50 results
       if (analysisResults.length > 50) analysisResults.pop();
-      // Persist
       chrome.storage.local.set({ analysisResults });
-      // Update UI
       renderStats();
       renderFeed();
       renderDistribution();
@@ -123,21 +131,40 @@ function listenForUpdates() {
   });
 }
 
-// ── Loading State ──
+// ── Loading State with Progress Bar ──
 function showLoadingState(data) {
   const card = document.getElementById("loadingCard");
+  const emptyState = document.getElementById("emptyState");
   card.style.display = "block";
+  emptyState.style.display = "none";
+
+  const authorText = data.author ? ` by @${data.author}` : "";
   document.getElementById("loadingHeadline").textContent = data.headline || "Post";
-  document.getElementById("loadingAuthor").textContent = data.author ? `by @${data.author}` : "";
+  document.getElementById("loadingAuthor").textContent = `Analyzing${authorText} on ${data.platform || "page"}`;
+
+  // Reset progress bar
+  const progressFill = document.getElementById("loadingProgressFill");
+  progressFill.style.width = "0%";
 
   loadingStartTime = Date.now();
   clearInterval(loadingTimerInterval);
+  clearInterval(loadingProgressInterval);
+
   const timerEl = document.getElementById("loadingTimer");
-  timerEl.textContent = "0s elapsed";
+  timerEl.textContent = "Starting analysis...";
+  timerEl.style.color = "#4b5563";
+
+  // Animate progress bar (estimate ~15s for typical analysis)
+  loadingProgressInterval = setInterval(() => {
+    const elapsed = (Date.now() - loadingStartTime) / 1000;
+    // Asymptotic progress: approaches 90% over ~15s, never reaches 100% until done
+    const progress = Math.min(90, (1 - Math.exp(-elapsed / 8)) * 95);
+    progressFill.style.width = `${progress}%`;
+  }, 200);
 
   loadingTimerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - loadingStartTime) / 1000);
-    if (elapsed >= 30) {
+    if (elapsed >= 25) {
       timerEl.textContent = "Taking longer than expected…";
       timerEl.style.color = "#f87171";
     } else {
@@ -148,70 +175,46 @@ function showLoadingState(data) {
 }
 
 function hideLoadingState() {
-  document.getElementById("loadingCard").style.display = "none";
+  // Complete the progress bar before hiding
+  const progressFill = document.getElementById("loadingProgressFill");
+  progressFill.style.width = "100%";
+
   clearInterval(loadingTimerInterval);
+  clearInterval(loadingProgressInterval);
+
+  setTimeout(() => {
+    document.getElementById("loadingCard").style.display = "none";
+    progressFill.style.width = "0%";
+  }, 400);
 }
 
 function showErrorState(data) {
-  hideLoadingState();
+  clearInterval(loadingTimerInterval);
+  clearInterval(loadingProgressInterval);
+
   const card = document.getElementById("loadingCard");
   card.style.display = "block";
+
+  const progressFill = document.getElementById("loadingProgressFill");
+  progressFill.style.width = "100%";
+  progressFill.style.background = "#f87171";
+
   const headline = data.headline || "Post";
   document.getElementById("loadingHeadline").textContent = data.isTimeout
-    ? `⏱️ Timed out analyzing: ${headline}`
-    : `⚡ Error analyzing: ${headline}`;
-  document.getElementById("loadingAuthor").textContent = "Click the retry link on the page badge, or try again.";
+    ? `⏱️ Timed out: ${headline}`
+    : `⚡ Error: ${headline}`;
+  document.getElementById("loadingAuthor").textContent = "The post badge on the page has a retry link.";
   document.getElementById("loadingTimer").textContent = "";
-  document.querySelector(".loading-spinner-container").style.display = "none";
 
-  // Auto-hide after 5 seconds
   setTimeout(() => {
     card.style.display = "none";
-    document.querySelector(".loading-spinner-container").style.display = "flex";
+    progressFill.style.width = "0%";
+    progressFill.style.background = "";
+    // Show empty state if no results
+    if (analysisResults.length === 0) {
+      document.getElementById("emptyState").style.display = "block";
+    }
   }, 5000);
-}
-
-// ── Manual Analyze ──
-async function setupManualAnalyze() {
-  const data = await chrome.storage.local.get(["autoAnalyze"]);
-  const autoAnalyze = data.autoAnalyze !== false;
-  const card = document.getElementById("manualAnalyzeCard");
-  const btn = document.getElementById("manualAnalyzeBtn");
-
-  if (autoAnalyze || !currentTabId) {
-    card.style.display = "none";
-    return;
-  }
-
-  // Ask content script for current post info
-  try {
-    const response = await chrome.tabs.sendMessage(currentTabId, { type: "GET_CURRENT_POST" });
-    if (response?.found) {
-      card.style.display = "block";
-      document.getElementById("manualHeadline").textContent = response.headline || "Current page";
-      document.getElementById("manualAuthor").textContent = response.author ? `by @${response.author}` : response.authorName || "";
-    } else {
-      card.style.display = "none";
-    }
-  } catch {
-    card.style.display = "none";
-    return;
-  }
-
-  btn.addEventListener("click", async () => {
-    btn.disabled = true;
-    btn.textContent = "Analyzing…";
-    try {
-      await chrome.tabs.sendMessage(currentTabId, { type: "MANUAL_ANALYZE" });
-    } catch {
-      btn.textContent = "⚡ Error — try refreshing the page";
-    }
-    // Re-enable after a delay
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = "🔍 Analyze This Page";
-    }, 3000);
-  });
 }
 
 // ── Render Stats ──
@@ -233,7 +236,7 @@ function renderFeed() {
     feedList.innerHTML = `
       <div class="feed-empty">
         <div class="empty-icon">📡</div>
-        <p>No posts analyzed yet. Scroll through your feed to see results here.</p>
+        <p>No posts analyzed yet. Stop scrolling on a financial post to see results here.</p>
       </div>`;
     return;
   }
@@ -258,12 +261,10 @@ function renderFeed() {
     })
     .join("");
 
-  // Click to view details
   feedList.querySelectorAll(".feed-item").forEach((item) => {
     item.addEventListener("click", () => {
       const idx = parseInt(item.dataset.index);
       showCurrentPost(analysisResults[idx]);
-      // Switch to dashboard tab
       document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
       document.querySelector('[data-tab="dashboard"]').classList.add("active");
@@ -282,8 +283,7 @@ function showCurrentPost(data) {
   const score = data.trust_score;
   const level = score >= 70 ? "high" : score >= 40 ? "medium" : "low";
 
-  // Animate score ring
-  const circumference = 2 * Math.PI * 52; // r=52
+  const circumference = 2 * Math.PI * 52;
   const offset = circumference - (score / 100) * circumference;
   const ring = document.getElementById("scoreRingFill");
   ring.style.strokeDashoffset = offset;
@@ -298,7 +298,6 @@ function showCurrentPost(data) {
   document.getElementById("currentExplanation").textContent =
     data.explanation || "No detailed analysis available.";
 
-  // Flags
   const flagsEl = document.getElementById("currentFlags");
   if (data.flags && data.flags.length > 0) {
     flagsEl.innerHTML = data.flags.map((f) => `<span class="flag-chip">⚠️ ${escapeHtml(f)}</span>`).join("");
@@ -306,7 +305,6 @@ function showCurrentPost(data) {
     flagsEl.innerHTML = "";
   }
 
-  // Claims
   const claimsEl = document.getElementById("currentClaims");
   if (data.claims && data.claims.length > 0) {
     claimsEl.innerHTML = data.claims
@@ -363,23 +361,9 @@ function setupSettings() {
     }
   });
 
-  document.getElementById("autoAnalyze").addEventListener("change", (e) => {
-    chrome.storage.local.set({ autoAnalyze: e.target.checked });
-    // Show/hide manual analyze button
-    if (e.target.checked) {
-      document.getElementById("manualAnalyzeCard").style.display = "none";
-    } else {
-      setupManualAnalyze();
-    }
-  });
-
-  document.getElementById("showAll").addEventListener("change", (e) => {
-    chrome.storage.local.set({ showAll: e.target.checked });
-  });
-
   document.getElementById("clearDataBtn").addEventListener("click", async () => {
     analysisResults = [];
-    await chrome.storage.local.set({ analysisResults: [] });
+    await chrome.storage.local.set({ analysisResults: [], lastResult: null, lastStatus: null });
     renderStats();
     renderFeed();
     renderDistribution();

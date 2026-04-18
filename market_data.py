@@ -1,8 +1,9 @@
 """Market data lookups using Alpha Vantage API."""
 
+import asyncio
 import os
 import re
-from typing import Dict, List, Optional
+from typing import List, Optional
 import httpx
 
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")
@@ -12,13 +13,13 @@ BASE_URL = "https://www.alphavantage.co/query"
 def extract_tickers(text: str) -> List[str]:
     """Extract stock ticker symbols from text (e.g., $TSLA, $AAPL)."""
     tickers = re.findall(r"\$([A-Za-z]{1,5})\b", text)
-    return [t.upper() for t in tickers]
+    return list(dict.fromkeys(t.upper() for t in tickers))  # dedupe, preserve order
 
 
 async def get_quote(ticker: str) -> Optional[dict]:
     """Fetch current quote for a ticker symbol."""
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.get(
                 BASE_URL,
                 params={
@@ -29,7 +30,7 @@ async def get_quote(ticker: str) -> Optional[dict]:
             )
             data = resp.json()
             quote = data.get("Global Quote", {})
-            if not quote:
+            if not quote or not quote.get("05. price"):
                 return None
             return {
                 "ticker": ticker,
@@ -42,10 +43,7 @@ async def get_quote(ticker: str) -> Optional[dict]:
 
 
 async def get_market_context(tickers: List[str]) -> List[dict]:
-    """Get market data for a list of tickers."""
-    results = []
-    for ticker in tickers[:3]:  # Limit to 3 to avoid rate limits
-        quote = await get_quote(ticker)
-        if quote:
-            results.append(quote)
-    return results
+    """Get market data for a list of tickers concurrently."""
+    limited = tickers[:3]  # Limit to 3 to avoid rate limits
+    results = await asyncio.gather(*(get_quote(t) for t in limited))
+    return [r for r in results if r is not None]

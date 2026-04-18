@@ -47,24 +47,15 @@
         </div>
       </div>
 
-      <!-- Loading indicator (shown during analysis) -->
+      <!-- Loading / progress indicator (shown during analysis) -->
       <div class="loading-card" id="loadingCard" style="display:none;">
         <div class="card-title">Analyzing</div>
-        <div class="loading-spinner-container">
-          <div class="popup-spinner"></div>
+        <div class="loading-progress-bar">
+          <div class="loading-progress-fill" id="loadingProgressFill"></div>
         </div>
         <div class="loading-headline" id="loadingHeadline"></div>
         <div class="loading-author" id="loadingAuthor"></div>
         <div class="loading-timer" id="loadingTimer"></div>
-      </div>
-
-      <!-- Manual analyze button (shown when auto-analyze is off) -->
-      <div class="manual-analyze-card" id="manualAnalyzeCard" style="display:none;">
-        <div class="manual-post-info">
-          <div class="manual-headline" id="manualHeadline">—</div>
-          <div class="manual-author" id="manualAuthor"></div>
-        </div>
-        <button class="btn-analyze" id="manualAnalyzeBtn">🔍 Analyze This Page</button>
       </div>
 
       <!-- Current Post Analysis (if viewing one) -->
@@ -86,10 +77,11 @@
         <div class="current-claims" id="currentClaims"></div>
       </div>
 
-      <!-- Empty state when no post is being viewed -->
+      <!-- Empty state -->
       <div class="empty-state" id="emptyState">
-        <div class="empty-icon">👀</div>
-        <p>Browse your feed — TruthNuke will analyze financial posts automatically.</p>
+        <div class="empty-icon">⏸️</div>
+        <p>Stop scrolling for a few seconds on a financial post to trigger analysis.</p>
+        <p class="empty-hint">TruthNuke will automatically analyze visible posts when you pause.</p>
       </div>
 
       <!-- Trust distribution bar -->
@@ -113,27 +105,13 @@
       <div class="feed-list" id="feedList">
         <div class="feed-empty">
           <div class="empty-icon">📡</div>
-          <p>No posts analyzed yet. Scroll through your feed to see results here.</p>
+          <p>No posts analyzed yet. Stop scrolling on a financial post to see results here.</p>
         </div>
       </div>
     </section>
 
     <!-- Settings Tab -->
     <section class="tab-content" id="tab-settings">
-      <label class="toggle-row">
-        <span>Auto-analyze posts</span>
-        <div class="toggle-switch">
-          <input type="checkbox" id="autoAnalyze" checked>
-          <span class="toggle-slider"></span>
-        </div>
-      </label>
-      <label class="toggle-row">
-        <span>Analyze posts not related to finance</span>
-        <div class="toggle-switch">
-          <input type="checkbox" id="showAll">
-          <span class="toggle-slider"></span>
-        </div>
-      </label>
       <div class="setting-group">
         <label class="setting-label" for="apiUrl">Backend URL</label>
         <div class="input-row">
