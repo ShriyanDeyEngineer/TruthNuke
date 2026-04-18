@@ -271,10 +271,7 @@ async function analyzePost(postElement) {
     });
     badgeTarget.appendChild(badge);
   } catch (err) {
-<<<<<<< HEAD
-=======
     clearTimeout(timeoutId);
->>>>>>> 094d948 (Added progress bar + pop up for user to wait for analyze)
     console.error("TruthNuke analysis failed:", err);
     loadingBadge.remove();
 

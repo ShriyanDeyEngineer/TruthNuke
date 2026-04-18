@@ -50,10 +50,43 @@ if (!platform) {
   loadSettings().then(() => init());
 }
 
-// Respond to popup PING to confirm content script is alive
+// Respond to popup messages
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "PING") {
     sendResponse({ status: "alive", platform: platform?.key || null });
+  }
+  if (msg.type === "GET_CURRENT_POST") {
+    // Return info about the current page/post for the manual analyze button
+    if (!platform) {
+      sendResponse({ found: false });
+      return;
+    }
+    const posts = platform.getPostElements();
+    const firstPost = posts instanceof Set ? [...posts][0] : posts[0];
+    if (!firstPost) {
+      sendResponse({ found: false });
+      return;
+    }
+    const text = platform.getPostText(firstPost);
+    const author = platform.getAuthor(firstPost);
+    const headline = document.querySelector("h1")?.textContent?.slice(0, 80) || text?.slice(0, 80) || "";
+    sendResponse({
+      found: true,
+      headline,
+      author: author.handle,
+      authorName: author.displayName,
+      platform: platform.key,
+    });
+  }
+  if (msg.type === "MANUAL_ANALYZE") {
+    // Triggered from popup — analyze the current page
+    if (!platform) return;
+    const posts = platform.getPostElements();
+    posts.forEach((post) => {
+      const postId = platform.getPostId(post) || "";
+      processedPosts.delete(postId); // Allow re-analysis
+      analyzePost(post);
+    });
   }
 });
 
@@ -155,12 +188,15 @@ function createBadge(score, data) {
   return badge;
 }
 
-function createLoadingBadge() {
+function createLoadingBadge(headline) {
   const badge = document.createElement("span");
   badge.className = "fintrust-badge trust-loading";
-  badge.innerHTML = `<span class="badge-icon">🔍</span> Analyzing...`;
+  const shortTitle = headline ? headline.slice(0, 40) + (headline.length > 40 ? "…" : "") : "";
+  badge.innerHTML = `<span class="fintrust-spinner"></span> Analyzing${shortTitle ? ": " + shortTitle : "..."}`;
   return badge;
 }
+
+const ANALYSIS_TIMEOUT_MS = 30000; // 30 seconds
 
 async function analyzePost(postElement) {
   const postText = platform.getPostText(postElement);
@@ -178,8 +214,23 @@ async function analyzePost(postElement) {
   const badgeTarget = platform.getBadgeTarget(postElement);
   if (!badgeTarget) return;
 
-  const loadingBadge = createLoadingBadge();
+  const headline = document.querySelector("h1")?.textContent?.slice(0, 60) || postText.slice(0, 60);
+  const loadingBadge = createLoadingBadge(headline);
   badgeTarget.appendChild(loadingBadge);
+
+  // Notify popup that analysis is in progress
+  chrome.runtime.sendMessage({
+    type: "ANALYSIS_LOADING",
+    data: {
+      headline,
+      author: authorInfo.handle,
+      platform: platform.key,
+    },
+  }).catch(() => {});
+
+  // Create an AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ANALYSIS_TIMEOUT_MS);
 
   try {
     const response = await fetch(`${API_BASE}/api/analyze`, {
@@ -191,7 +242,10 @@ async function analyzePost(postElement) {
         author_name: authorInfo.displayName,
         platform: platform.key,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) throw new Error(`API error: ${response.status}`);
 
@@ -217,12 +271,41 @@ async function analyzePost(postElement) {
     });
     badgeTarget.appendChild(badge);
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error("TruthNuke analysis failed:", err);
     loadingBadge.remove();
+
+    const isTimeout = err.name === "AbortError";
     const errorBadge = document.createElement("span");
-    errorBadge.className = "fintrust-badge trust-loading";
-    errorBadge.innerHTML = `<span class="badge-icon">⚡</span> Offline`;
+    errorBadge.className = "fintrust-badge trust-error";
+
+    if (isTimeout) {
+      errorBadge.innerHTML = `<span class="badge-icon">⏱️</span> Timed out — <span class="fintrust-retry">Retry</span>`;
+    } else {
+      errorBadge.innerHTML = `<span class="badge-icon">⚡</span> Offline — <span class="fintrust-retry">Retry</span>`;
+    }
+
+    // Allow retry on click
+    errorBadge.querySelector(".fintrust-retry").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      errorBadge.remove();
+      processedPosts.delete(postId);
+      analyzePost(postElement);
+    });
+
     badgeTarget.appendChild(errorBadge);
+
+    // Notify popup of the error
+    chrome.runtime.sendMessage({
+      type: "ANALYSIS_ERROR",
+      data: {
+        headline,
+        author: authorInfo.handle,
+        platform: platform.key,
+        isTimeout,
+      },
+    }).catch(() => {});
   }
 }
 

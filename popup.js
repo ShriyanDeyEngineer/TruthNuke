@@ -25,6 +25,8 @@ const SUPPORTED_SITES = [
 
 let analysisResults = [];
 let currentTabId = null;
+let loadingStartTime = null;
+let loadingTimerInterval = null;
 
 // ── Initialize ──
 async function init() {
@@ -33,6 +35,7 @@ async function init() {
   await loadStoredData();
   listenForUpdates();
   setupSettings();
+  setupManualAnalyze();
 }
 
 // ── Tab Navigation ──
@@ -97,7 +100,11 @@ async function loadStoredData() {
 // ── Listen for Live Updates from Content Script ──
 function listenForUpdates() {
   chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type === "ANALYSIS_LOADING") {
+      showLoadingState(msg.data);
+    }
     if (msg.type === "ANALYSIS_RESULT") {
+      hideLoadingState();
       // Add to front of list
       analysisResults.unshift(msg.data);
       // Keep max 50 results
@@ -110,6 +117,100 @@ function listenForUpdates() {
       renderDistribution();
       showCurrentPost(msg.data);
     }
+    if (msg.type === "ANALYSIS_ERROR") {
+      showErrorState(msg.data);
+    }
+  });
+}
+
+// ── Loading State ──
+function showLoadingState(data) {
+  const card = document.getElementById("loadingCard");
+  card.style.display = "block";
+  document.getElementById("loadingHeadline").textContent = data.headline || "Post";
+  document.getElementById("loadingAuthor").textContent = data.author ? `by @${data.author}` : "";
+
+  loadingStartTime = Date.now();
+  clearInterval(loadingTimerInterval);
+  const timerEl = document.getElementById("loadingTimer");
+  timerEl.textContent = "0s elapsed";
+
+  loadingTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - loadingStartTime) / 1000);
+    if (elapsed >= 30) {
+      timerEl.textContent = "Taking longer than expected…";
+      timerEl.style.color = "#f87171";
+    } else {
+      timerEl.textContent = `${elapsed}s elapsed`;
+      timerEl.style.color = "#4b5563";
+    }
+  }, 1000);
+}
+
+function hideLoadingState() {
+  document.getElementById("loadingCard").style.display = "none";
+  clearInterval(loadingTimerInterval);
+}
+
+function showErrorState(data) {
+  hideLoadingState();
+  const card = document.getElementById("loadingCard");
+  card.style.display = "block";
+  const headline = data.headline || "Post";
+  document.getElementById("loadingHeadline").textContent = data.isTimeout
+    ? `⏱️ Timed out analyzing: ${headline}`
+    : `⚡ Error analyzing: ${headline}`;
+  document.getElementById("loadingAuthor").textContent = "Click the retry link on the page badge, or try again.";
+  document.getElementById("loadingTimer").textContent = "";
+  document.querySelector(".loading-spinner-container").style.display = "none";
+
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    card.style.display = "none";
+    document.querySelector(".loading-spinner-container").style.display = "flex";
+  }, 5000);
+}
+
+// ── Manual Analyze ──
+async function setupManualAnalyze() {
+  const data = await chrome.storage.local.get(["autoAnalyze"]);
+  const autoAnalyze = data.autoAnalyze !== false;
+  const card = document.getElementById("manualAnalyzeCard");
+  const btn = document.getElementById("manualAnalyzeBtn");
+
+  if (autoAnalyze || !currentTabId) {
+    card.style.display = "none";
+    return;
+  }
+
+  // Ask content script for current post info
+  try {
+    const response = await chrome.tabs.sendMessage(currentTabId, { type: "GET_CURRENT_POST" });
+    if (response?.found) {
+      card.style.display = "block";
+      document.getElementById("manualHeadline").textContent = response.headline || "Current page";
+      document.getElementById("manualAuthor").textContent = response.author ? `by @${response.author}` : response.authorName || "";
+    } else {
+      card.style.display = "none";
+    }
+  } catch {
+    card.style.display = "none";
+    return;
+  }
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    btn.textContent = "Analyzing…";
+    try {
+      await chrome.tabs.sendMessage(currentTabId, { type: "MANUAL_ANALYZE" });
+    } catch {
+      btn.textContent = "⚡ Error — try refreshing the page";
+    }
+    // Re-enable after a delay
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = "🔍 Analyze This Page";
+    }, 3000);
   });
 }
 
@@ -264,6 +365,12 @@ function setupSettings() {
 
   document.getElementById("autoAnalyze").addEventListener("change", (e) => {
     chrome.storage.local.set({ autoAnalyze: e.target.checked });
+    // Show/hide manual analyze button
+    if (e.target.checked) {
+      document.getElementById("manualAnalyzeCard").style.display = "none";
+    } else {
+      setupManualAnalyze();
+    }
   });
 
   document.getElementById("showAll").addEventListener("change", (e) => {
