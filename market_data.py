@@ -2,19 +2,20 @@
 
 import os
 import re
+from typing import Dict, List, Optional
 import httpx
 
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")
 BASE_URL = "https://www.alphavantage.co/query"
 
 
-def extract_tickers(text: str) -> list[str]:
+def extract_tickers(text: str) -> List[str]:
     """Extract stock ticker symbols from text (e.g., $TSLA, $AAPL)."""
     tickers = re.findall(r"\$([A-Za-z]{1,5})\b", text)
     return [t.upper() for t in tickers]
 
 
-async def get_quote(ticker: str) -> dict | None:
+async def get_quote(ticker: str) -> Optional[dict]:
     """Fetch current quote for a ticker symbol."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -40,7 +41,7 @@ async def get_quote(ticker: str) -> dict | None:
         return None
 
 
-async def get_market_context(tickers: list[str]) -> list[dict]:
+async def get_market_context(tickers: List[str]) -> List[dict]:
     """Get market data for a list of tickers."""
     results = []
     for ticker in tickers[:3]:  # Limit to 3 to avoid rate limits

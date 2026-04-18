@@ -1,10 +1,12 @@
-"""LLM-based claim extraction and analysis using Claude."""
+"""LLM-based claim extraction and analysis using Featherless AI."""
 
 import os
 import json
-import anthropic
+from typing import List, Optional
+import httpx
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY", "")
+FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1"
 
 SYSTEM_PROMPT = """You are a financial content analyst. Your job is to analyze social media posts about finance and investing.
 
@@ -38,7 +40,7 @@ Respond ONLY with valid JSON in this exact format:
 }"""
 
 
-async def extract_and_analyze(text: str, author: str, market_data: list[dict] | None = None) -> dict:
+async def extract_and_analyze(text: str, author: str, market_data: Optional[List[dict]] = None) -> dict:
     """Use Claude to extract claims and analyze trustworthiness."""
     market_context = ""
     if market_data:
@@ -54,14 +56,27 @@ Post: "{text}"
 Extract claims, identify red flags, and assess trustworthiness."""
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        )
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.post(
+                f"{FEATHERLESS_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {FEATHERLESS_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                    "max_tokens": 1024,
+                    "messages": [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        result_text = response.content[0].text
+        result_text = data["choices"][0]["message"]["content"]
         return json.loads(result_text)
     except json.JSONDecodeError:
         # If Claude doesn't return valid JSON, return a default
