@@ -85,11 +85,27 @@ async function detectPlatformStatus() {
 
 // ── Load Stored Analysis Data ──
 async function loadStoredData() {
-  const data = await chrome.storage.local.get(["analysisResults", "autoAnalyze", "showAll", "apiUrl"]);
+  const data = await chrome.storage.local.get(["analysisResults", "autoAnalyze", "showAll", "apiUrl", "lastResult", "lastStatus"]);
   analysisResults = data.analysisResults || [];
   renderStats();
   renderFeed();
   renderDistribution();
+
+  // Show the most recent result if available
+  if (data.lastResult) {
+    showCurrentPost(data.lastResult);
+  }
+
+  // Restore loading/error state if analysis was in progress
+  if (data.lastStatus) {
+    if (data.lastStatus.type === "ANALYSIS_LOADING") {
+      showLoadingState(data.lastStatus.data);
+    } else if (data.lastStatus.type === "ANALYSIS_ERROR") {
+      showErrorState(data.lastStatus.data);
+    }
+    // Clear the transient status
+    chrome.storage.local.remove("lastStatus");
+  }
 
   // Settings
   document.getElementById("autoAnalyze").checked = data.autoAnalyze !== false;
@@ -105,6 +121,8 @@ function listenForUpdates() {
     }
     if (msg.type === "ANALYSIS_RESULT") {
       hideLoadingState();
+      // Clear transient status
+      chrome.storage.local.remove("lastStatus");
       // Add to front of list
       analysisResults.unshift(msg.data);
       // Keep max 50 results
@@ -379,7 +397,7 @@ function setupSettings() {
 
   document.getElementById("clearDataBtn").addEventListener("click", async () => {
     analysisResults = [];
-    await chrome.storage.local.set({ analysisResults: [] });
+    await chrome.storage.local.set({ analysisResults: [], lastResult: null, lastStatus: null });
     renderStats();
     renderFeed();
     renderDistribution();

@@ -54,18 +54,18 @@ if (!platform) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "PING") {
     sendResponse({ status: "alive", platform: platform?.key || null });
+    return false;
   }
   if (msg.type === "GET_CURRENT_POST") {
-    // Return info about the current page/post for the manual analyze button
     if (!platform) {
       sendResponse({ found: false });
-      return;
+      return false;
     }
     const posts = platform.getPostElements();
     const firstPost = posts instanceof Set ? [...posts][0] : posts[0];
     if (!firstPost) {
       sendResponse({ found: false });
-      return;
+      return false;
     }
     const text = platform.getPostText(firstPost);
     const author = platform.getAuthor(firstPost);
@@ -77,16 +77,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       authorName: author.displayName,
       platform: platform.key,
     });
+    return false;
   }
   if (msg.type === "MANUAL_ANALYZE") {
-    // Triggered from popup — analyze the current page
-    if (!platform) return;
+    if (!platform) return false;
     const posts = platform.getPostElements();
     posts.forEach((post) => {
       const postId = platform.getPostId(post) || "";
-      processedPosts.delete(postId); // Allow re-analysis
+      processedPosts.delete(postId);
       analyzePost(post);
     });
+    return false;
+  }
   }
 });
 

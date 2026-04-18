@@ -2,8 +2,11 @@
 
 import os
 import json
+import logging
 from typing import List, Optional
 import httpx
+
+logger = logging.getLogger("truthnuke")
 
 FEATHERLESS_API_KEY = os.getenv("FEATHERLESS_API_KEY", "")
 FEATHERLESS_BASE_URL = "https://api.featherless.ai/v1"
@@ -51,11 +54,15 @@ async def extract_and_analyze(text: str, author: str, market_data: Optional[List
     user_message = f"""Analyze this social media post about finance/investing:
 
 Author: @{author}
-Post: "{text}"
+Post: "{text[:2000]}"
 {market_context}
 Extract claims, identify red flags, and assess trustworthiness."""
 
     try:
+        # Truncate long texts to avoid slow API responses
+        truncated_text = text[:2000] if len(text) > 2000 else text
+        logger.info(f"Analyzing post by @{author} ({len(text)} chars, truncated to {len(truncated_text)})")
+
         async with httpx.AsyncClient() as http_client:
             response = await http_client.post(
                 f"{FEATHERLESS_BASE_URL}/chat/completions",
@@ -64,14 +71,14 @@ Extract claims, identify red flags, and assess trustworthiness."""
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
-                    "max_tokens": 1024,
+                    "model": "mistralai/Mistral-Nemo-Instruct-2407",
+                    "max_tokens": 512,
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_message},
                     ],
                 },
-                timeout=30.0,
+                timeout=20.0,
             )
             response.raise_for_status()
             data = response.json()
@@ -79,7 +86,7 @@ Extract claims, identify red flags, and assess trustworthiness."""
         result_text = data["choices"][0]["message"]["content"]
         return json.loads(result_text)
     except json.JSONDecodeError:
-        # If Claude doesn't return valid JSON, return a default
+        logger.warning(f"LLM returned invalid JSON for @{author}")
         return {
             "claims": [],
             "flags": ["Unable to fully analyze this post"],
@@ -87,6 +94,7 @@ Extract claims, identify red flags, and assess trustworthiness."""
             "explanation": "Analysis was inconclusive. Exercise caution with any financial advice from social media.",
         }
     except Exception as e:
+        logger.error(f"Analysis failed for @{author}: {e}")
         return {
             "claims": [],
             "flags": [f"Analysis error: {str(e)}"],
