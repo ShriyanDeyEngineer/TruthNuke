@@ -1,4 +1,4 @@
-"""FinTrust API - Backend server for the browser extension."""
+"""TruthNuke API - Backend server for the browser extension."""
 
 from dotenv import load_dotenv
 
@@ -12,7 +12,7 @@ from claim_extractor import extract_and_analyze
 from market_data import extract_tickers, get_market_context
 from scorer import calculate_trust_score, get_trust_level
 
-app = FastAPI(title="FinTrust API", version="1.0.0")
+app = FastAPI(title="TruthNuke API", version="1.0.0")
 
 # Allow extension to call the API
 app.add_middleware(
@@ -47,7 +47,7 @@ class AnalyzeResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "fintrust"}
+    return {"status": "ok", "service": "truthnuke"}
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)

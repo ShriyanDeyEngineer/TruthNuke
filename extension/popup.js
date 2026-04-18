@@ -1,4 +1,4 @@
-// FinTrust Popup Dashboard
+// TruthNuke Popup Dashboard
 // Communicates with content script via Chrome messaging to show live analysis results
 
 const SUPPORTED_SITES = [

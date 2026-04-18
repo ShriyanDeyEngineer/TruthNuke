@@ -1,4 +1,4 @@
-# 🛡️ FinTrust — Social Media Finance Checker
+# 🛡️ TruthNuke — Social Media Finance Checker
 
 A browser extension that analyzes financial advice on social media and rates the trustworthiness of sources. Built to protect beginner investors from misleading influencer content.
 

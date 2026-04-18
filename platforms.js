@@ -874,7 +874,7 @@ const PLATFORMS = {
 function detectPlatform() {
   for (const [key, platform] of Object.entries(PLATFORMS)) {
     if (platform.match()) {
-      console.log(`🛡️ FinTrust: Detected platform — ${platform.name}`);
+      console.log(`🛡️ TruthNuke: Detected platform — ${platform.name}`);
       return { key, ...platform };
     }
   }

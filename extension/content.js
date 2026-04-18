@@ -1,4 +1,4 @@
-// FinTrust - Content Script
+// TruthNuke - Content Script
 // Detects finance-related posts on any supported platform and injects trust badges
 // Platform adapters are loaded from platforms.js
 
@@ -45,7 +45,7 @@ chrome.storage.onChanged.addListener((changes) => {
 const platform = detectPlatform();
 
 if (!platform) {
-  console.log("🛡️ FinTrust: No supported platform detected on this page.");
+  console.log("🛡️ TruthNuke: No supported platform detected on this page.");
 } else {
   loadSettings().then(() => init());
 }
@@ -133,7 +133,7 @@ function createBadge(score, data) {
       ${data.explanation || "Analysis based on content patterns and source credibility."}
     </div>
     <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
-      Powered by FinTrust · ${platform.name} · Not financial advice
+      Powered by TruthNuke · ${platform.name} · Not financial advice
     </div>
   `;
 
@@ -217,7 +217,7 @@ async function analyzePost(postElement) {
     });
     badgeTarget.appendChild(badge);
   } catch (err) {
-    console.error("FinTrust analysis failed:", err);
+    console.error("TruthNuke analysis failed:", err);
     loadingBadge.remove();
     const errorBadge = document.createElement("span");
     errorBadge.className = "fintrust-badge trust-loading";
@@ -269,6 +269,6 @@ function init() {
   urlObserver.observe(document.body, { childList: true, subtree: true });
 
   console.log(
-    `🛡️ FinTrust loaded — monitoring ${platform.name} for financial posts`
+    `🛡️ TruthNuke loaded — monitoring ${platform.name} for financial posts`
   );
 }
