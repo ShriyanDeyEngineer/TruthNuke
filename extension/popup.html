@@ -47,6 +47,26 @@
         </div>
       </div>
 
+      <!-- Loading indicator (shown during analysis) -->
+      <div class="loading-card" id="loadingCard" style="display:none;">
+        <div class="card-title">Analyzing</div>
+        <div class="loading-spinner-container">
+          <div class="popup-spinner"></div>
+        </div>
+        <div class="loading-headline" id="loadingHeadline"></div>
+        <div class="loading-author" id="loadingAuthor"></div>
+        <div class="loading-timer" id="loadingTimer"></div>
+      </div>
+
+      <!-- Manual analyze button (shown when auto-analyze is off) -->
+      <div class="manual-analyze-card" id="manualAnalyzeCard" style="display:none;">
+        <div class="manual-post-info">
+          <div class="manual-headline" id="manualHeadline">—</div>
+          <div class="manual-author" id="manualAuthor"></div>
+        </div>
+        <button class="btn-analyze" id="manualAnalyzeBtn">🔍 Analyze This Page</button>
+      </div>
+
       <!-- Current Post Analysis (if viewing one) -->
       <div class="current-post-card" id="currentPostCard" style="display:none;">
         <div class="card-title">Current Post</div>
