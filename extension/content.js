@@ -173,7 +173,7 @@ function createBadge(score, data) {
   return badge;
 }
 
-const ANALYSIS_TIMEOUT_MS = 30000; // 30 seconds
+const ANALYSIS_TIMEOUT_MS = 50000; // 50 seconds
 
 async function analyzePost(postElement) {
   const postText = platform.getPostText(postElement);

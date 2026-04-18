@@ -14,7 +14,6 @@ from pydantic import BaseModel
 from typing import List
 
 from claim_extractor import extract_and_analyze
-from market_data import extract_tickers, get_market_context
 from scorer import calculate_trust_score, get_trust_level
 
 app = FastAPI(title="TruthNuke API", version="1.0.0")
@@ -59,22 +58,18 @@ async def health():
 async def analyze_post(req: AnalyzeRequest):
     """Analyze a social media post for financial trustworthiness."""
 
-    # Step 1: Extract ticker symbols and fetch market data
-    tickers = extract_tickers(req.text)
-    market_data = await get_market_context(tickers) if tickers else []
-
-    # Step 2: Use LLM to extract claims and detect manipulation
+    # Step 1: Use LLM to extract claims and detect manipulation
     analysis = await extract_and_analyze(
         text=req.text,
         author=req.author,
-        market_data=market_data,
+        market_data=[],
     )
 
-    # Step 3: Calculate trust score
+    # Step 2: Calculate trust score
     trust_score = calculate_trust_score(
         analysis=analysis,
         author=req.author,
-        has_market_data=len(market_data) > 0,
+        has_market_data=False,
     )
 
     return AnalyzeResponse(

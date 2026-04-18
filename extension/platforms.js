@@ -79,162 +79,129 @@ const PLATFORMS = {
 
     getPostElements: () => {
       const elements = new Set();
+      const path = location.pathname;
 
-      // 1. Standard feed posts (articles)
+      // 1. Feed posts and post detail pages — always look for <article>
       document.querySelectorAll("article").forEach((el) => elements.add(el));
 
-      // 2. Dialog/modal posts and reels
-      document
-        .querySelectorAll(
-          'div[role="presentation"] article, div[role="dialog"] article'
-        )
-        .forEach((el) => elements.add(el));
+      // 2. Dialog/modal overlays (clicking a post from grid)
+      document.querySelectorAll('div[role="dialog"] article').forEach((el) => elements.add(el));
 
-      // 3. Reels page — full-screen reel containers
-      //    Instagram reels live in sections/divs on /reels/ URLs
-      if (location.pathname.includes("/reel")) {
-        // Single reel page: grab the main content area
-        const mainContent = document.querySelector("main section") || document.querySelector("main");
-        if (mainContent) {
-          // Look for the reel video container with caption nearby
-          const reelSections = mainContent.querySelectorAll("section");
-          reelSections.forEach((s) => {
-            if (s.querySelector("video") || s.querySelector("span")) {
-              elements.add(s);
-            }
-          });
-          // Fallback: if no sections found, use main itself
-          if (reelSections.length === 0) elements.add(mainContent);
-        }
+      // 3. Reels — /reels/ or /reel/ pages
+      //    Instagram reels don't use <article>. The whole page IS the reel.
+      if (path.includes("/reel")) {
+        // Use the page itself as the "post element"
+        const main = document.querySelector("main") || document.body;
+        elements.add(main);
       }
 
-      // 4. Reels tab / scrollable reels feed
-      //    Each reel in the feed is typically inside a div with a video element
-      document
-        .querySelectorAll(
-          'div[style*="height: 100vh"], div[style*="height:100vh"], div[role="presentation"]'
-        )
-        .forEach((el) => {
-          if (el.querySelector("video") && !elements.has(el)) {
-            elements.add(el);
-          }
-        });
+      // 4. If nothing found yet, try the main content area as a fallback
+      if (elements.size === 0) {
+        const main = document.querySelector("main");
+        if (main) elements.add(main);
+      }
 
       return elements;
     },
 
-    getPostId: (el) => {
-      // Check for reel/post links within the element
-      const link = el.querySelector('a[href*="/p/"], a[href*="/reel/"]');
-      if (link) return link.href;
-      // On a /reel/ page, use the URL itself
-      if (location.pathname.includes("/reel")) return location.href;
-      return el.textContent?.slice(0, 60);
+    getPostId: () => {
+      // Use the URL — it's unique per post/reel and works for SPA navigation
+      return location.href;
     },
 
     getPostText: (el) => {
-      // Strategy: get ONLY the post caption, NOT user comments
-      // Instagram captions are typically in the header area or first content block
+      const path = location.pathname;
 
-      // 1. Look for caption in the header/first section only (not comment lists)
-      const header = el.querySelector("header");
-      let longestText = "";
+      // For reels: search the whole page for caption text
+      // For posts: search within the article element
+      const searchRoot = path.includes("/reel") ? document : el;
 
-      // Caption is usually the first substantial span AFTER the header, not in comment lists
-      // Comments are in <ul> lists — skip those
-      const captionSpans = el.querySelectorAll("span");
-      for (const span of captionSpans) {
-        // Skip spans inside comment lists (ul > li structures)
+      // Instagram captions are in spans. We want the longest non-comment text.
+      // Comments live inside <ul> elements, so skip those.
+      let bestText = "";
+      const spans = searchRoot.querySelectorAll("span");
+      for (const span of spans) {
+        // Skip comment sections
         if (span.closest("ul")) continue;
-        const text = span.textContent || "";
-        if (text.length > longestText.length && text.length > 20) {
-          longestText = text;
+        // Skip very short UI text
+        const text = (span.textContent || "").trim();
+        if (text.length > bestText.length && text.length > 15 && text.length < 3000) {
+          bestText = text;
         }
       }
 
-      // 2. On reel pages, also check for h1 elements (reel titles/captions)
-      if (!longestText || longestText.length < 20) {
-        const headings = el.querySelectorAll("h1, h2");
-        for (const h of headings) {
-          const text = h.textContent || "";
-          if (text.length > longestText.length) longestText = text;
-        }
+      // Also check h1/h2 (some layouts use headings for captions)
+      const headings = searchRoot.querySelectorAll("h1, h2");
+      for (const h of headings) {
+        const text = (h.textContent || "").trim();
+        if (text.length > bestText.length) bestText = text;
       }
 
-      // 3. On reel pages, captions can be in a sibling/nearby container
-      if ((!longestText || longestText.length < 20) && location.pathname.includes("/reel")) {
-        const allSpans = document.querySelectorAll("main span");
-        for (const span of allSpans) {
-          if (span.closest("ul")) continue; // Skip comment lists
-          const text = span.textContent || "";
-          if (text.length > longestText.length && text.length > 20 && text.length < 3000) {
-            longestText = text;
-          }
-        }
+      // Fallback: meta description (works on direct reel/post URLs)
+      if (!bestText || bestText.length < 15) {
+        const meta = document.querySelector('meta[name="description"], meta[property="og:description"]');
+        if (meta?.content) bestText = meta.content;
       }
 
-      return longestText;
+      return bestText;
     },
 
     getAuthor: (el) => {
-      // 1. Standard post header link
-      const headerLink = el.querySelector(
-        'header a[href*="/"], span a[href*="/"]'
-      );
-      if (headerLink) {
-        const href = headerLink.getAttribute("href") || "";
-        const handle = href.replace(/\//g, "");
-        if (handle && handle.length > 0 && handle.length < 40) {
-          return {
-            handle,
-            displayName: headerLink.textContent || handle,
-          };
+      // Strategy: find links that look like /<username>/ (not /p/, /reel/, /explore/, etc.)
+      const reservedPaths = /^\/(p|reel|reels|explore|accounts|stories|direct|about|developer|legal)\/?$/;
+      const usernamePattern = /^\/([a-zA-Z0-9_.]{1,30})\/?$/;
+
+      // Search in the element first, then broaden to main
+      const roots = [el, document.querySelector("main"), document].filter(Boolean);
+
+      for (const root of roots) {
+        const links = root.querySelectorAll('a[href^="/"]');
+        for (const link of links) {
+          const href = link.getAttribute("href") || "";
+          const match = href.match(usernamePattern);
+          if (match && !reservedPaths.test(href)) {
+            const handle = match[1];
+            return {
+              handle,
+              displayName: link.textContent?.trim() || handle,
+            };
+          }
         }
+        // If we found nothing in the element, try the next root
       }
 
-      // 2. Reel page — author is often in a link near the video
-      const authorLinks = (el.closest("main") || el).querySelectorAll('a[href^="/"]');
-      for (const link of authorLinks) {
-        const href = link.getAttribute("href") || "";
-        // Match simple username paths like /username/ but not /p/ /reel/ /explore/ etc.
-        if (
-          href.match(/^\/[a-zA-Z0-9_.]+\/?$/) &&
-          !href.match(/^\/(p|reel|reels|explore|accounts|stories|direct)\/?$/)
-        ) {
-          const handle = href.replace(/\//g, "");
-          return {
-            handle,
-            displayName: link.textContent || handle,
-          };
-        }
+      // Fallback: try og:title meta which often has "Author on Instagram"
+      const ogTitle = document.querySelector('meta[property="og:title"]')?.content || "";
+      const titleMatch = ogTitle.match(/^(.+?)(?:\s+on\s+Instagram|\s*[-|])/i);
+      if (titleMatch) {
+        return { handle: titleMatch[1].trim(), displayName: titleMatch[1].trim() };
       }
 
       return { handle: "", displayName: "" };
     },
 
     getBadgeTarget: (el) => {
-      // 1. Standard post header
+      // 1. Post header (feed posts)
       const header = el.querySelector("header");
-      if (header) {
-        const nameContainer = header.querySelector(
-          'span a, div[role="button"]'
-        );
-        return nameContainer?.parentElement || header;
-      }
+      if (header) return header;
 
-      // 2. Reel page — find the author name area to attach badge
-      const authorLinks = (el.closest("main") || el).querySelectorAll('a[href^="/"]');
-      for (const link of authorLinks) {
-        const href = link.getAttribute("href") || "";
-        if (
-          href.match(/^\/[a-zA-Z0-9_.]+\/?$/) &&
-          !href.match(/^\/(p|reel|reels|explore|accounts|stories|direct)\/?$/)
-        ) {
-          return link.parentElement || link;
+      // 2. Find the first username link's parent (reels)
+      const reservedPaths = /^\/(p|reel|reels|explore|accounts|stories|direct|about)\/?$/;
+      const usernamePattern = /^\/[a-zA-Z0-9_.]{1,30}\/?$/;
+      const roots = [el, document.querySelector("main")].filter(Boolean);
+
+      for (const root of roots) {
+        const links = root.querySelectorAll('a[href^="/"]');
+        for (const link of links) {
+          const href = link.getAttribute("href") || "";
+          if (usernamePattern.test(href) && !reservedPaths.test(href)) {
+            return link.parentElement || link;
+          }
         }
       }
 
-      return null;
+      // 3. Fallback: first h2 or the element itself
+      return el.querySelector("h2")?.parentElement || el.querySelector("header") || null;
     },
   },
 
