@@ -147,3 +147,28 @@
 .fintrust-tooltip .claim-verdict.misleading {
   color: #fca5a5;
 }
+
+/* ── News article badge (displayed near headline) ── */
+.fintrust-badge-article-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* Make badge more prominent on article pages */
+article .fintrust-badge,
+main .fintrust-badge {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  margin-left: 0;
+  margin-top: 8px;
+  display: inline-flex;
+}
+
+/* Ensure tooltip is readable on light-background news sites */
+article .fintrust-tooltip,
+main .fintrust-tooltip {
+  z-index: 99999;
+}

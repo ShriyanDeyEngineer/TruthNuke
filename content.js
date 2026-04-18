@@ -145,7 +145,10 @@ function createLoadingBadge() {
 
 async function analyzePost(postElement) {
   const postText = platform.getPostText(postElement);
-  if (!postText || !isFinanceRelated(postText)) return;
+  if (!postText) return;
+
+  // News sites are always finance-related; social media needs keyword check
+  if (!platform.isNews && !isFinanceRelated(postText)) return;
 
   const postId = platform.getPostId(postElement) || postText.slice(0, 80);
   if (processedPosts.has(postId)) return;
@@ -231,6 +234,16 @@ function init() {
     childList: true,
     subtree: true,
   });
+
+  // Also re-scan on URL changes (SPA navigation for reels, stories, etc.)
+  let lastUrl = location.href;
+  const urlObserver = new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      setTimeout(scanForPosts, 1000);
+    }
+  });
+  urlObserver.observe(document.body, { childList: true, subtree: true });
 
   console.log(
     `🛡️ FinTrust loaded — monitoring ${platform.name} for financial posts`

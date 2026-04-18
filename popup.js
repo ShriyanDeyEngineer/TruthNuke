@@ -7,6 +7,20 @@ const SUPPORTED_SITES = [
   { pattern: "instagram.com", name: "Instagram", icon: "📷" },
   { pattern: "tiktok.com", name: "TikTok", icon: "🎵" },
   { pattern: "facebook.com", name: "Facebook", icon: "📘" },
+  { pattern: "cnbc.com", name: "CNBC", icon: "📺" },
+  { pattern: "fool.com", name: "Motley Fool", icon: "🃏" },
+  { pattern: "marketwatch.com", name: "MarketWatch", icon: "📈" },
+  { pattern: "finance.yahoo.com", name: "Yahoo Finance", icon: "💹" },
+  { pattern: "bloomberg.com", name: "Bloomberg", icon: "📊" },
+  { pattern: "reuters.com", name: "Reuters", icon: "🗞️" },
+  { pattern: "investopedia.com", name: "Investopedia", icon: "📚" },
+  { pattern: "benzinga.com", name: "Benzinga", icon: "⚡" },
+  { pattern: "seekingalpha.com", name: "Seeking Alpha", icon: "🔍" },
+  { pattern: "barrons.com", name: "Barron's", icon: "📰" },
+  { pattern: "wsj.com", name: "WSJ", icon: "📰" },
+  { pattern: "ft.com", name: "Financial Times", icon: "📰" },
+  { pattern: "thestreet.com", name: "TheStreet", icon: "🏛️" },
+  { pattern: "forbes.com", name: "Forbes", icon: "💰" },
 ];
 
 let analysisResults = [];
