@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinTrust</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <h1>🛡️ FinTrust</h1>
+        <div class="status-pill" id="statusPill">
+          <span class="status-dot"></span>
+          <span class="status-text">Checking...</span>
+        </div>
+      </div>
+      <p class="subtitle" id="platformLabel">Social Media Finance Checker</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="feed">Live Feed</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- Dashboard Tab -->
+    <section class="tab-content active" id="tab-dashboard">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-number" id="postsAnalyzed">0</div>
+          <div class="stat-label">Analyzed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🚩</div>
+          <div class="stat-number" id="flagsRaised">0</div>
+          <div class="stat-label">Flagged</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-number" id="trustworthy">0</div>
+          <div class="stat-label">Trusted</div>
+        </div>
+      </div>
+
+      <!-- Current Post Analysis (if viewing one) -->
+      <div class="current-post-card" id="currentPostCard" style="display:none;">
+        <div class="card-title">Current Post</div>
+        <div class="score-ring-container">
+          <svg class="score-ring" viewBox="0 0 120 120">
+            <circle class="score-ring-bg" cx="60" cy="60" r="52" />
+            <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="52" />
+          </svg>
+          <div class="score-ring-text">
+            <div class="score-value" id="currentScore">--</div>
+            <div class="score-label" id="currentLevel">N/A</div>
+          </div>
+        </div>
+        <div class="current-author" id="currentAuthor"></div>
+        <div class="current-explanation" id="currentExplanation"></div>
+        <div class="current-flags" id="currentFlags"></div>
+        <div class="current-claims" id="currentClaims"></div>
+      </div>
+
+      <!-- Empty state when no post is being viewed -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">👀</div>
+        <p>Browse your feed — FinTrust will analyze financial posts automatically.</p>
+      </div>
+
+      <!-- Trust distribution bar -->
+      <div class="distribution-card" id="distributionCard" style="display:none;">
+        <div class="card-title">Trust Distribution</div>
+        <div class="dist-bar">
+          <div class="dist-segment dist-high" id="distHigh" style="width:0%"></div>
+          <div class="dist-segment dist-medium" id="distMedium" style="width:0%"></div>
+          <div class="dist-segment dist-low" id="distLow" style="width:0%"></div>
+        </div>
+        <div class="dist-legend">
+          <span class="legend-item"><span class="legend-dot high"></span>Trusted</span>
+          <span class="legend-item"><span class="legend-dot medium"></span>Caution</span>
+          <span class="legend-item"><span class="legend-dot low"></span>Unreliable</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live Feed Tab -->
+    <section class="tab-content" id="tab-feed">
+      <div class="feed-list" id="feedList">
+        <div class="feed-empty">
+          <div class="empty-icon">📡</div>
+          <p>No posts analyzed yet. Scroll through your feed to see results here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section class="tab-content" id="tab-settings">
+      <label class="toggle-row">
+        <span>Auto-analyze posts</span>
+        <div class="toggle-switch">
+          <input type="checkbox" id="autoAnalyze" checked>
+          <span class="toggle-slider"></span>
+        </div>
+      </label>
+      <label class="toggle-row">
+        <span>Show badges on all posts</span>
+        <div class="toggle-switch">
+          <input type="checkbox" id="showAll">
+          <span class="toggle-slider"></span>
+        </div>
+      </label>
+      <div class="setting-group">
+        <label class="setting-label" for="apiUrl">Backend URL</label>
+        <div class="input-row">
+          <input type="text" id="apiUrl" placeholder="http://localhost:8000" value="http://localhost:8000">
+          <button id="saveBtn">Save</button>
+        </div>
+        <div class="api-status" id="apiStatus"></div>
+      </div>
+      <button class="btn-secondary" id="clearDataBtn">Clear All Data</button>
+    </section>
+
+    <!-- Footer -->
+    <div class="footer">
+      FinTrust does not provide financial advice. Always DYOR.
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
