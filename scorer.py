@@ -9,39 +9,35 @@ def calculate_trust_score(
     """
     Calculate a 0-100 trust score based on LLM analysis and metadata.
 
-    Scoring breakdown:
-    - Base score: 50 (neutral starting point)
-    - Manipulation score from LLM: -40 to 0 (high manipulation = lower score)
-    - Red flags: -5 each (up to -25)
-    - Verified claims: +5 each (up to +15)
-    - Misleading claims: -10 each (up to -30)
-    - Market data available: +5 (claims can be cross-referenced)
+    The manipulation_score from the LLM is 0 (trustworthy) to 100 (manipulative).
+    We invert it to get a trust score: 100 - manipulation = trust baseline.
+
+    Then adjust with flags and claim verdicts.
     """
-    score = 50
-
-    # Factor 1: LLM manipulation score (inverted — high manipulation = bad)
+    # Start from the inverse of manipulation score
+    # manipulation_score 0 → trust 100, manipulation_score 100 → trust 0
     manipulation = analysis.get("manipulation_score", 50)
-    score -= int(manipulation * 0.4)  # 0 to -40
+    try:
+        manipulation = int(manipulation)
+    except (ValueError, TypeError):
+        manipulation = 50
+    manipulation = max(0, min(100, manipulation))
+    score = 100 - manipulation
 
-    # Factor 2: Red flags
+    # Red flags: -5 each, capped at -25
     flags = analysis.get("flags", [])
-    flag_penalty = min(len(flags) * 5, 25)
-    score -= flag_penalty
+    score -= min(len(flags) * 5, 25)
 
-    # Factor 3: Claim verdicts
+    # Claim verdicts
     claims = analysis.get("claims", [])
     for claim in claims:
         verdict = claim.get("verdict", "questionable")
         if verdict == "verified":
-            score += 5
+            score += 3
         elif verdict == "misleading":
             score -= 10
         elif verdict == "questionable":
-            score -= 3
-
-    # Factor 4: Market data cross-reference bonus
-    if has_market_data:
-        score += 5
+            score -= 5
 
     # Clamp to 0-100
     return max(0, min(100, score))

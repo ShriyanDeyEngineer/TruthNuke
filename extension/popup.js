@@ -117,9 +117,9 @@ function listenForUpdates() {
     if (msg.type === "ANALYSIS_RESULT") {
       hideLoadingState();
       chrome.storage.local.remove("lastStatus");
+      // Update local array (background.js handles persisting to storage)
       analysisResults.unshift(msg.data);
       if (analysisResults.length > 50) analysisResults.pop();
-      chrome.storage.local.set({ analysisResults });
       renderStats();
       renderFeed();
       renderDistribution();
@@ -313,11 +313,24 @@ function showCurrentPost(data) {
       <div class="claim-card ${c.verdict}">
         <div class="claim-text">"${escapeHtml(c.claim)}"</div>
         <div class="claim-verdict ${c.verdict}">${c.verdict}${c.explanation ? " — " + escapeHtml(c.explanation) : ""}</div>
+        ${c.sources && c.sources.length > 0 ? `<div class="claim-sources">${c.sources.map((s) => `<div class="claim-source">📰 ${escapeHtml(s)}</div>`).join("")}</div>` : ""}
       </div>`
       )
       .join("");
   } else {
     claimsEl.innerHTML = "";
+  }
+
+  // Top-level sources
+  const sourcesEl = document.getElementById("currentSources");
+  if (sourcesEl) {
+    if (data.sources && data.sources.length > 0) {
+      sourcesEl.innerHTML = `<div class="card-title">📰 Cross-reference</div>` +
+        data.sources.map((s) => `<div class="source-item">${escapeHtml(s)}</div>`).join("");
+      sourcesEl.style.display = "block";
+    } else {
+      sourcesEl.style.display = "none";
+    }
   }
 }
 

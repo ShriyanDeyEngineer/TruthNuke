@@ -3,7 +3,13 @@
 // Analysis triggers when the user stops scrolling for a few seconds
 // Platform adapters are loaded from platforms.js
 
-const API_BASE = "http://localhost:8000"; // Change to deployed URL in production
+const API_BASE_DEFAULT = "http://localhost:8000";
+let API_BASE = API_BASE_DEFAULT;
+
+// Load custom API URL from storage if set
+chrome.storage?.local?.get(["apiUrl"], (data) => {
+  if (data?.apiUrl) API_BASE = data.apiUrl;
+});
 
 // Finance-related keywords to detect relevant posts
 const FINANCE_KEYWORDS = [
@@ -22,11 +28,6 @@ const FINANCE_KEYWORDS = [
 
 // Track which posts we've already processed
 const processedPosts = new Set();
-
-// Scroll-idle detection
-let scrollIdleTimer = null;
-const SCROLL_IDLE_DELAY = 3000; // 3 seconds of no scrolling
-let isAnalyzing = false;
 
 // Detect current platform
 const platform = detectPlatform();
@@ -67,7 +68,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "MANUAL_ANALYZE") {
     if (!platform) return;
     const posts = platform.getPostElements();
-    posts.forEach((post) => {
+    const postArray = posts instanceof Set ? [...posts] : Array.from(posts);
+    postArray.forEach((post) => {
       const postId = platform.getPostId(post) || "";
       processedPosts.delete(postId);
       analyzePost(post);
@@ -126,6 +128,7 @@ function createBadge(score, data) {
           <div class="claim-item">
             <div class="claim-text">"${c.claim}"</div>
             <div class="claim-verdict ${c.verdict}">${c.verdict}: ${c.explanation}</div>
+            ${c.sources && c.sources.length > 0 ? `<div class="claim-sources">${c.sources.map((s) => `<span class="claim-source">📰 ${s}</span>`).join("")}</div>` : ""}
           </div>`
           )
           .join("")}
@@ -150,6 +153,11 @@ function createBadge(score, data) {
     <div class="tooltip-explanation">
       ${data.explanation || "Analysis based on content patterns and source credibility."}
     </div>
+    ${data.sources && data.sources.length > 0 ? `
+    <div class="tooltip-sources">
+      <strong>📰 Cross-reference:</strong>
+      <ul>${data.sources.map((s) => `<li>${s}</li>`).join("")}</ul>
+    </div>` : ""}
     <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
       Powered by TruthNuke · ${platform.name} · Not financial advice
     </div>
@@ -175,12 +183,27 @@ function createBadge(score, data) {
 
 const ANALYSIS_TIMEOUT_MS = 50000; // 50 seconds
 
+// Active request controller — abort when user navigates to a new post
+let activeController = null;
+
+function cancelActiveAnalysis() {
+  if (activeController) {
+    activeController.abort();
+    activeController = null;
+  }
+}
+
 async function analyzePost(postElement) {
   const postText = platform.getPostText(postElement);
-  if (!postText) return;
+  if (!postText) {
+    console.log("🛡️ TruthNuke: Skipped post — no text found");
+    return;
+  }
 
-  // News sites always analyze; social media needs finance keyword match
-  if (!platform.isNews && !isFinanceRelated(postText)) return;
+  if (!platform.isNews && postText.length < 30 && !isFinanceRelated(postText)) {
+    console.log("🛡️ TruthNuke: Skipped short non-finance post");
+    return;
+  }
 
   const postId = platform.getPostId(postElement) || postText.slice(0, 80);
   if (processedPosts.has(postId)) return;
@@ -188,30 +211,32 @@ async function analyzePost(postElement) {
 
   const authorInfo = platform.getAuthor(postElement);
   const badgeTarget = platform.getBadgeTarget(postElement);
-  if (!badgeTarget) return;
+  if (!badgeTarget) {
+    console.log("🛡️ TruthNuke: Skipped post — no badge target found for @" + authorInfo.handle);
+    return;
+  }
 
+  // Cancel any in-flight analysis (user moved on)
+  cancelActiveAnalysis();
+
+  console.log(`🛡️ TruthNuke: Analyzing post by @${authorInfo.handle} (${postText.length} chars)`);
   const headline = document.querySelector("h1")?.textContent?.slice(0, 60) || postText.slice(0, 60);
 
-  // Notify popup that analysis is in progress (progress shows in popup, not on page)
   chrome.runtime.sendMessage({
     type: "ANALYSIS_LOADING",
-    data: {
-      headline,
-      author: authorInfo.handle,
-      platform: platform.key,
-    },
+    data: { headline, author: authorInfo.handle, platform: platform.key },
   }).catch(() => {});
 
   const controller = new AbortController();
+  activeController = controller;
   const timeoutId = setTimeout(() => controller.abort(), ANALYSIS_TIMEOUT_MS);
 
   try {
-    isAnalyzing = true;
     const response = await fetch(`${API_BASE}/api/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: postText.slice(0, 3000), // Truncate to keep requests fast
+        text: postText.slice(0, 3000),
         author: authorInfo.handle,
         author_name: authorInfo.displayName,
         platform: platform.key,
@@ -220,12 +245,13 @@ async function analyzePost(postElement) {
     });
 
     clearTimeout(timeoutId);
+    if (activeController !== controller) return; // User already moved on
 
     if (!response.ok) throw new Error(`API error: ${response.status}`);
 
     const data = await response.json();
+    activeController = null;
 
-    // Send result to popup dashboard
     chrome.runtime.sendMessage({
       type: "ANALYSIS_RESULT",
       data: {
@@ -238,24 +264,27 @@ async function analyzePost(postElement) {
       },
     }).catch(() => {});
 
-    const badge = createBadge(data.trust_score, {
-      ...data,
-      author: authorInfo.handle,
-    });
+    const badge = createBadge(data.trust_score, { ...data, author: authorInfo.handle });
     badgeTarget.appendChild(badge);
   } catch (err) {
     clearTimeout(timeoutId);
+
+    // If aborted because user moved on, silently skip — don't show error badge
+    if (err.name === "AbortError" && activeController !== controller) {
+      console.log("🛡️ TruthNuke: Cancelled stale analysis for @" + authorInfo.handle);
+      processedPosts.delete(postId); // Allow re-analysis if user comes back
+      return;
+    }
+
+    activeController = null;
     console.error("TruthNuke analysis failed:", err);
 
     const isTimeout = err.name === "AbortError";
     const errorBadge = document.createElement("span");
     errorBadge.className = "fintrust-badge trust-error";
-
-    if (isTimeout) {
-      errorBadge.innerHTML = `<span class="badge-icon">⏱️</span> Timed out — <span class="fintrust-retry">Retry</span>`;
-    } else {
-      errorBadge.innerHTML = `<span class="badge-icon">⚡</span> Offline — <span class="fintrust-retry">Retry</span>`;
-    }
+    errorBadge.innerHTML = isTimeout
+      ? `<span class="badge-icon">⏱️</span> Timed out — <span class="fintrust-retry">Retry</span>`
+      : `<span class="badge-icon">⚡</span> Offline — <span class="fintrust-retry">Retry</span>`;
 
     errorBadge.querySelector(".fintrust-retry").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -269,57 +298,45 @@ async function analyzePost(postElement) {
 
     chrome.runtime.sendMessage({
       type: "ANALYSIS_ERROR",
-      data: {
-        headline,
-        author: authorInfo.handle,
-        platform: platform.key,
-        isTimeout,
-      },
+      data: { headline, author: authorInfo.handle, platform: platform.key, isTimeout },
     }).catch(() => {});
-  } finally {
-    isAnalyzing = false;
   }
 }
 
 function scanVisiblePosts() {
   const posts = platform.getPostElements();
-  posts.forEach((post) => analyzePost(post));
-}
-
-function onScrollIdle() {
-  // User stopped scrolling — analyze visible posts
-  if (!isAnalyzing) {
-    scanVisiblePosts();
-  }
+  const postArray = posts instanceof Set ? [...posts] : Array.from(posts);
+  console.log(`🛡️ TruthNuke: Scanning — found ${postArray.length} post element(s)`);
+  postArray.forEach((post) => analyzePost(post));
 }
 
 function init() {
-  // Set up scroll-idle detection: analyze when user stops scrolling for 3 seconds
-  const resetIdleTimer = () => {
-    clearTimeout(scrollIdleTimer);
-    scrollIdleTimer = setTimeout(onScrollIdle, SCROLL_IDLE_DELAY);
-  };
+  // Scan immediately, then keep retrying until we find something
+  // This handles slow-loading SPAs where content appears after initial load
+  let retryCount = 0;
+  const maxRetries = 10;
 
-  window.addEventListener("scroll", resetIdleTimer, { passive: true });
-  window.addEventListener("mousemove", resetIdleTimer, { passive: true });
-  window.addEventListener("touchmove", resetIdleTimer, { passive: true });
+  function tryScan() {
+    const posts = platform.getPostElements();
+    const postArray = posts instanceof Set ? [...posts] : Array.from(posts);
 
-  // Also trigger on initial page load after a short delay
-  setTimeout(onScrollIdle, 2000);
-
-  // Watch for new posts loaded via infinite scroll / SPA navigation
-  const observer = new MutationObserver((mutations) => {
-    let hasNew = false;
-    for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        hasNew = true;
-        break;
-      }
+    if (postArray.length > 0) {
+      scanVisiblePosts();
+      retryCount = 0; // Reset for next navigation
+    } else if (retryCount < maxRetries) {
+      retryCount++;
+      setTimeout(tryScan, 1000); // Retry every second
     }
-    if (hasNew) {
-      // Reset idle timer when new content loads
-      resetIdleTimer();
-    }
+  }
+
+  // Initial scan with retries
+  setTimeout(tryScan, 1000);
+
+  // Watch for new content (infinite scroll, lazy loading)
+  let scanDebounce = null;
+  const observer = new MutationObserver(() => {
+    clearTimeout(scanDebounce);
+    scanDebounce = setTimeout(scanVisiblePosts, 1500);
   });
 
   observer.observe(document.body, {
@@ -327,17 +344,47 @@ function init() {
     subtree: true,
   });
 
-  // Re-scan on URL changes (SPA navigation)
+  // Re-scan on URL changes (SPA navigation — Twitter, TikTok, etc.)
   let lastUrl = location.href;
-  const urlObserver = new MutationObserver(() => {
+  setInterval(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      setTimeout(onScrollIdle, 2000);
+      // Cancel any in-flight analysis and clear for new page
+      cancelActiveAnalysis();
+      processedPosts.clear();
+      document.querySelectorAll(".fintrust-badge, .fintrust-tooltip").forEach((el) => el.remove());
+      // Retry scan with delays to catch late-loading content
+      retryCount = 0;
+      setTimeout(tryScan, 1000);
+      setTimeout(tryScan, 2500);
+      setTimeout(tryScan, 5000);
     }
-  });
-  urlObserver.observe(document.body, { childList: true, subtree: true });
+  }, 500);
 
-  console.log(
-    `🛡️ TruthNuke loaded — monitoring ${platform.name}. Stop scrolling for 3 seconds to analyze posts.`
-  );
+  // Also scan on scroll stop (catches content that loads as you scroll)
+  let scrollTimer = null;
+  window.addEventListener("scroll", () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(scanVisiblePosts, 2000);
+  }, { passive: true });
+
+  // TikTok-specific: detect video swipes (URL doesn't change on For You page)
+  // Poll for the currently visible video changing
+  if (platform.key === "tiktok") {
+    let lastVideoId = null;
+    setInterval(() => {
+      const posts = platform.getPostElements();
+      const postArray = posts instanceof Set ? [...posts] : Array.from(posts);
+      if (postArray.length === 0) return;
+      const currentId = platform.getPostId(postArray[0]);
+      if (currentId && currentId !== lastVideoId) {
+        lastVideoId = currentId;
+        console.log(`🛡️ TruthNuke: TikTok video changed — ${currentId.slice(0, 60)}`);
+        cancelActiveAnalysis();
+        scanVisiblePosts();
+      }
+    }, 1500);
+  }
+
+  console.log(`🛡️ TruthNuke loaded — monitoring ${platform.name}`);
 }

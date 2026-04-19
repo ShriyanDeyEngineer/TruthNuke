@@ -39,6 +39,7 @@ class ClaimResponse(BaseModel):
     claim: str
     verdict: str
     explanation: str
+    sources: List[str] = []
 
 
 class AnalyzeResponse(BaseModel):
@@ -47,6 +48,7 @@ class AnalyzeResponse(BaseModel):
     claims: List[ClaimResponse]
     flags: List[str]
     explanation: str
+    sources: List[str] = []
 
 
 @app.get("/health")
@@ -76,13 +78,20 @@ async def analyze_post(req: AnalyzeRequest):
         trust_score=trust_score,
         trust_level=get_trust_level(trust_score),
         claims=[
-            ClaimResponse(**c) for c in analysis.get("claims", [])
+            ClaimResponse(
+                claim=c.get("claim", ""),
+                verdict=c.get("verdict", "questionable"),
+                explanation=c.get("explanation", ""),
+                sources=c.get("sources", []),
+            )
+            for c in analysis.get("claims", [])
         ],
         flags=analysis.get("flags", []),
         explanation=analysis.get(
             "explanation",
             "Analysis complete. Always verify financial claims independently.",
         ),
+        sources=analysis.get("sources", []),
     )
 
 

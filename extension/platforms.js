@@ -36,8 +36,29 @@ const PLATFORMS = {
     match: () =>
       location.hostname === "x.com" || location.hostname === "twitter.com",
 
-    getPostElements: () =>
-      document.querySelectorAll('article[data-testid="tweet"]'),
+    getPostElements: () => {
+      const articles = document.querySelectorAll('article[data-testid="tweet"]');
+      const path = location.pathname;
+
+      // On a tweet detail page (/username/status/123), find the main tweet
+      if (path.includes("/status/")) {
+        // Extract the status URL from the current page path
+        const statusMatch = path.match(/\/([a-zA-Z0-9_]+)\/status\/(\d+)/);
+        if (statusMatch) {
+          const statusUrl = `/${statusMatch[1]}/status/${statusMatch[2]}`;
+          // Find the article that contains a link matching this exact status URL
+          for (const article of articles) {
+            const link = article.querySelector(`a[href*="${statusUrl}"]`);
+            if (link) return [article];
+          }
+        }
+        // Fallback: first article is usually the main tweet
+        return articles[0] ? [articles[0]] : [];
+      }
+
+      // On the feed/timeline, return all tweets
+      return articles;
+    },
 
     getPostId: (el) => {
       const link = el.querySelector('a[href*="/status/"]');
@@ -45,21 +66,20 @@ const PLATFORMS = {
     },
 
     getPostText: (el) => {
-      // Only get the main tweet text, not replies/comments
-      // Replies are nested articles — skip if this is inside another tweet
-      if (el.closest('article[data-testid="tweet"]') !== el) return "";
       const textEl = el.querySelector('[data-testid="tweetText"]');
       return textEl ? textEl.textContent : "";
     },
 
     getAuthor: (el) => {
+      // The author link is the first link matching /@username pattern
       const links = el.querySelectorAll('a[role="link"]');
       for (const link of links) {
         const href = link.getAttribute("href");
         if (
           href &&
           href.match(/^\/[a-zA-Z0-9_]+$/) &&
-          !href.includes("/status")
+          !href.includes("/status") &&
+          !href.includes("/i/")
         ) {
           return {
             handle: href.replace("/", ""),
@@ -210,49 +230,102 @@ const PLATFORMS = {
     match: () => location.hostname === "www.tiktok.com",
 
     getPostElements: () => {
-      // TikTok feed items (For You page and following page)
+      const path = location.pathname;
+
+      // On a direct video page (/@user/video/123 — from search, profile, or shared link)
+      if (path.includes("/video/")) {
+        // Try specific TikTok data attributes first
+        const detail = document.querySelector(
+          '[data-e2e="browse-video-desc"], [data-e2e="video-desc"], ' +
+          '[data-e2e="search-card-desc"], [class*="DivBrowserModeContainer"], ' +
+          '[class*="video-detail"]'
+        );
+        if (detail) {
+          const container = detail.closest('[class*="Container"], [class*="wrapper"], main') || detail.parentElement;
+          return container ? [container] : [];
+        }
+        // Broader fallback: find any container with a video element and text nearby
+        const videoEl = document.querySelector("video");
+        if (videoEl) {
+          // Walk up to find a meaningful container
+          let container = videoEl.parentElement;
+          for (let i = 0; i < 5 && container; i++) {
+            // Stop when we find a container that also has text content (description/author)
+            if (container.querySelector('a[href*="/@"]') || container.querySelector('[class*="desc"], [class*="Desc"]')) {
+              return [container];
+            }
+            container = container.parentElement;
+          }
+        }
+        // Last resort: use main or body
+        const main = document.querySelector("main") || document.body;
+        return [main];
+      }
+
+      // On the For You / Following feed, find the video currently in the viewport
+      // TikTok snaps one video at a time — the visible one is the one playing
       const feedItems = document.querySelectorAll(
         '[data-e2e="recommend-list-item-container"], ' +
           '[class*="DivItemContainer"], ' +
           '[class*="video-feed-item"]'
       );
-      // Also check for video detail page
-      const detailDesc = document.querySelectorAll(
-        '[data-e2e="browse-video-desc"], [data-e2e="video-desc"]'
-      );
-      const all = new Set([...feedItems]);
-      // Wrap detail descriptions in a pseudo-container if on a video page
-      if (feedItems.length === 0 && detailDesc.length > 0) {
-        detailDesc.forEach((d) => {
-          const container = d.closest('[class*="Container"]') || d.parentElement;
-          if (container) all.add(container);
-        });
+
+      // Find the one most in the viewport (center of screen)
+      const viewportCenter = window.innerHeight / 2;
+      let bestItem = null;
+      let bestDistance = Infinity;
+
+      for (const item of feedItems) {
+        const rect = item.getBoundingClientRect();
+        // Check if the item is visible at all
+        if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+        const itemCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(itemCenter - viewportCenter);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestItem = item;
+        }
       }
-      return all;
+
+      return bestItem ? [bestItem] : [];
     },
 
     getPostId: (el) => {
+      // Try to find a video link with a unique ID
       const link = el.querySelector('a[href*="/video/"]');
-      return link ? link.href : el.textContent?.slice(0, 60);
+      if (link) return link.href;
+      // Try the author + first bit of description as a unique key
+      const desc = el.querySelector('[data-e2e="video-desc"], [data-e2e="browse-video-desc"]');
+      const author = el.querySelector('[data-e2e="video-author-uniqueid"], a[href*="/@"]');
+      const authorText = author?.textContent || "";
+      const descText = desc?.textContent || "";
+      if (authorText || descText) return `tiktok:${authorText}:${descText.slice(0, 50)}`;
+      // Last resort: use the element's position in the viewport
+      const rect = el.getBoundingClientRect();
+      return `tiktok:pos:${Math.round(rect.top)}`;
     },
 
     getPostText: (el) => {
       // Video description / caption ONLY — skip comment sections
       const descEl =
         el.querySelector(
-          '[data-e2e="video-desc"], [data-e2e="browse-video-desc"]'
+          '[data-e2e="video-desc"], [data-e2e="browse-video-desc"], [data-e2e="search-card-desc"]'
         ) ||
-        el.querySelector('[class*="DivVideoDesc"], [class*="video-meta"]');
+        el.querySelector('[class*="DivVideoDesc"], [class*="video-meta"], [class*="desc" i]');
       if (descEl) return descEl.textContent || "";
+
       // Fallback: grab visible text but skip comment containers
-      const spans = el.querySelectorAll("span, h1, h2");
+      const spans = el.querySelectorAll("span, h1, h2, h3");
       let text = "";
       for (const s of spans) {
-        // Skip comment sections
-        if (s.closest('[data-e2e="comment-list"], [class*="CommentList"], [class*="comment"]')) continue;
+        if (s.closest('[data-e2e="comment-list"], [class*="CommentList"], [class*="comment" i], [class*="Reply"]')) continue;
         text += " " + (s.textContent || "");
       }
-      return text.trim();
+      if (text.trim()) return text.trim();
+
+      // Last resort: meta description
+      const meta = document.querySelector('meta[name="description"], meta[property="og:description"]');
+      return meta?.content || "";
     },
 
     getAuthor: (el) => {
@@ -308,8 +381,10 @@ const PLATFORMS = {
       const textDivs = el.querySelectorAll('div[dir="auto"]');
       let longestText = "";
       for (const div of textDivs) {
-        // Skip text inside nested articles (comments)
-        if (div.closest('div[role="article"]') !== el) continue;
+        // Skip text inside nested articles (comments) — check if the closest
+        // article ancestor is a DIFFERENT article than our post element
+        const parentArticle = div.parentElement?.closest('div[role="article"]');
+        if (parentArticle && parentArticle !== el) continue;
         const text = div.textContent || "";
         if (text.length > longestText.length && text.length > 20 && text.length < 5000) {
           longestText = text;
