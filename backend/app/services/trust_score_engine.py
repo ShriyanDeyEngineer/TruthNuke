@@ -233,7 +233,7 @@ class TrustScoreEngine:
         Requirements: 6.2, 28.4
         """
         if not evidence.results:
-            return 30  # Low score for no evidence
+            return 15  # Very low score for no evidence
         
         credibility_scores = []
         
@@ -241,7 +241,7 @@ class TrustScoreEngine:
             source_lower = result.source.lower().strip()
             
             # Check against known reputable sources
-            source_score = 50  # Default for unknown sources
+            source_score = 35  # Default for unknown sources (harsher)
             for known_source, score in REPUTABLE_SOURCES.items():
                 if known_source in source_lower:
                     source_score = score
@@ -271,22 +271,21 @@ class TrustScoreEngine:
         Requirements: 6.3
         """
         if evidence.insufficient_evidence or not evidence.results:
-            return 20  # Low score for insufficient evidence
+            return 10  # Very low score for insufficient evidence
         
         num_results = len(evidence.results)
         
         # Base score from number of results (more is better, up to a point)
-        # 1 result = 40, 2 = 55, 3 = 65, 4 = 75, 5+ = 80
         if num_results >= 5:
-            quantity_score = 80
+            quantity_score = 70
         elif num_results >= 4:
-            quantity_score = 75
+            quantity_score = 60
         elif num_results >= 3:
-            quantity_score = 65
+            quantity_score = 50
         elif num_results >= 2:
-            quantity_score = 55
-        else:
             quantity_score = 40
+        else:
+            quantity_score = 30
         
         # Quality score from average relevance
         avg_relevance = sum(r.relevance_score for r in evidence.results) / num_results
@@ -320,21 +319,21 @@ class TrustScoreEngine:
             emotional_matches += len(matches)
         
         # Start with perfect score and deduct for emotional language
-        # Each match deducts 15 points, minimum score is 10
-        score = 100 - (emotional_matches * 15)
+        # Each match deducts 20 points, minimum score is 5
+        score = 100 - (emotional_matches * 20)
         
         # Additional checks for excessive punctuation (!!!, ???, etc.)
         excessive_punctuation = len(re.findall(r'[!?]{2,}', claim.text))
-        score -= excessive_punctuation * 10
+        score -= excessive_punctuation * 15
         
         # Check for ALL CAPS words (excluding common acronyms)
         all_caps_words = re.findall(r'\b[A-Z]{4,}\b', claim.text)
         # Filter out common financial acronyms
         common_acronyms = {'NYSE', 'NASDAQ', 'SEC', 'IPO', 'ETF', 'CEO', 'CFO', 'GDP', 'FOMC'}
         non_acronym_caps = [w for w in all_caps_words if w not in common_acronyms]
-        score -= len(non_acronym_caps) * 10
+        score -= len(non_acronym_caps) * 15
         
-        return max(10, min(100, score))
+        return max(5, min(100, score))
     
     def _compute_cross_source_agreement(self, evidence: EvidenceSet) -> int:
         """Compute cross-source agreement sub-score based on source consistency.
@@ -351,10 +350,10 @@ class TrustScoreEngine:
         Requirements: 6.5
         """
         if not evidence.results:
-            return 30  # Low score for no evidence
+            return 15  # Very low score for no evidence
         
         if len(evidence.results) == 1:
-            return 50  # Neutral score for single source (can't measure agreement)
+            return 35  # Low score for single source (can't verify agreement)
         
         # Analyze summaries for agreement/disagreement indicators
         summaries = [r.summary.lower() for r in evidence.results]
@@ -389,12 +388,12 @@ class TrustScoreEngine:
         # Calculate score based on agreement vs contradiction ratio
         total_sources = len(evidence.results)
         
-        # Base score of 70 for multiple sources
-        base_score = 70
+        # Base score of 55 for multiple sources (was 70 — harsher default)
+        base_score = 55
         
         # Adjust based on agreement/contradiction
-        agreement_bonus = (agreement_count / total_sources) * 30
-        contradiction_penalty = (contradiction_count / total_sources) * 40
+        agreement_bonus = (agreement_count / total_sources) * 35
+        contradiction_penalty = (contradiction_count / total_sources) * 50
         
         score = base_score + agreement_bonus - contradiction_penalty
         

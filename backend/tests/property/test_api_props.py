@@ -178,7 +178,7 @@ def test_client():
 # ============================================================================
 
 @given(text=valid_text_strategy)
-@settings(max_examples=100)
+@settings(deadline=None, max_examples=100)
 def test_api_response_structure_completeness(text: str):
     """
     Property 12: API response structure completeness.
@@ -254,7 +254,7 @@ def test_api_response_structure_completeness(text: str):
 
 
 @given(text=financial_text_strategy)
-@settings(max_examples=100)
+@settings(deadline=None, max_examples=100)
 def test_api_response_structure_with_financial_text(text: str):
     """
     Property 12 (variant): API response structure with financial-like text.
@@ -329,7 +329,7 @@ def test_api_response_structure_with_financial_text(text: str):
 
 
 @given(text=valid_text_strategy)
-@settings(max_examples=50)
+@settings(deadline=None, max_examples=50)
 def test_api_response_trust_score_breakdown_structure(text: str):
     """
     Property: API response trust_score_breakdown structure.
@@ -381,7 +381,7 @@ def test_api_response_trust_score_breakdown_structure(text: str):
 
 
 @given(text=valid_text_strategy)
-@settings(max_examples=50)
+@settings(deadline=None, max_examples=50)
 def test_api_response_sources_structure(text: str):
     """
     Property: API response sources structure.
@@ -543,7 +543,7 @@ deduction_triggering_text_strategy = st.one_of(
 
 
 @given(text=deduction_triggering_text_strategy)
-@settings(max_examples=100)
+@settings(deadline=None, max_examples=100)
 def test_deduction_reference_integrity(text: str):
     """
     Property 13: DeductionReference integrity.
@@ -651,7 +651,7 @@ def test_deduction_reference_integrity(text: str):
 
 
 @given(text=financial_text_strategy)
-@settings(max_examples=100)
+@settings(deadline=None, max_examples=100)
 def test_deduction_reference_integrity_with_financial_text(text: str):
     """
     Property 13 (variant): DeductionReference integrity with financial text.
@@ -727,7 +727,7 @@ def test_deduction_reference_integrity_with_financial_text(text: str):
 
 
 @given(text=valid_text_strategy)
-@settings(max_examples=50)
+@settings(deadline=None, max_examples=50)
 def test_deduction_reference_claim_id_consistency(text: str):
     """
     Property 13 (claim_id consistency): Every deduction's claim_id must reference

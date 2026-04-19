@@ -19,6 +19,7 @@ from app.models.schemas import (
     DeductionReference,
     EvidenceSet,
     NoCorroborationDeduction,
+    RiskAssessment,
     SearchResult,
     TrustScoreBreakdown,
 )
@@ -373,6 +374,16 @@ class Analyzer:
                 )
                 claim_analyses.append(claim_analysis)
         
+        # Step 8: Compute risk assessment (layered signal scoring)
+        from app.services.risk_scorer import compute_risk_score
+        risk_result = compute_risk_score(normalized_text, claims, classifications)
+        risk_assessment = RiskAssessment(
+            risk_score=risk_result.risk_score,
+            risk_level=risk_result.risk_level,
+            signals=risk_result.signals,
+            explanation=risk_result.explanation,
+        )
+        
         # Determine overall classification (most severe label)
         overall_classification = self._determine_overall_classification(classifications)
         
@@ -391,6 +402,7 @@ class Analyzer:
             trust_score_breakdown=trust_score_breakdown,
             explanation=explanation,
             sources=unique_sources,
+            risk_assessment=risk_assessment,
         )
     
     def _determine_overall_classification(

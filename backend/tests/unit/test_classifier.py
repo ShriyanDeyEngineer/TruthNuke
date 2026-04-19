@@ -376,13 +376,15 @@ class TestClassifierClassify:
     async def test_classify_propagates_llm_parsing_error(
         self, classifier, mock_llm_client, sample_claim, sample_evidence
     ):
-        """Test that LLMParsingError is propagated."""
+        """Test that LLMParsingError returns a fallback classification instead of crashing."""
         mock_llm_client.complete_json = AsyncMock(
             side_effect=LLMParsingError("Invalid JSON response")
         )
         
-        with pytest.raises(LLMParsingError):
-            await classifier.classify(sample_claim, sample_evidence)
+        result = await classifier.classify(sample_claim, sample_evidence)
+        # Should return a fallback MISLEADING classification
+        assert result.label == ClassificationLabel.MISLEADING
+        assert "could not be fully determined" in result.reasoning
     
     @pytest.mark.asyncio
     async def test_classify_includes_claim_entities_in_prompt(

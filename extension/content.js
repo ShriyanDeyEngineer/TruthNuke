@@ -5,17 +5,26 @@
 const API_BASE = "http://localhost:8000";
 
 const FINANCE_KEYWORDS = [
-  "stock", "stocks", "invest", "investing", "investment", "trader", "trading",
+  // Market terms
+  "stock", "stocks", "equity", "shares", "market", "portfolio", "dividend",
+  "earnings", "ipo", "etf", "mutual fund", "sp500", "s&p", "nasdaq", "dow", "nyse",
+  // Trading actions
+  "buy", "sell", "short", "long", "trade", "trading", "calls", "puts",
+  "options", "strike", "expiry", "forex", "leverage",
+  // Crypto
   "crypto", "bitcoin", "btc", "eth", "ethereum", "altcoin", "defi",
-  "buy", "sell", "short", "long", "bull", "bear", "moon", "pump", "dump",
-  "portfolio", "dividend", "earnings", "ipo", "etf", "mutual fund",
-  "forex", "options", "calls", "puts", "strike", "expiry",
-  "sp500", "s&p", "nasdaq", "dow", "nyse",
-  "passive income", "financial freedom", "retire early", "fire",
-  "roi", "yield", "apy", "apr", "market cap",
+  "nft", "blockchain", "token", "staking",
+  // Hype (high signal)
+  "guaranteed returns", "risk-free", "free money", "easy money",
+  "moon", "to the moon", "100x", "10x", "pump", "dump",
+  "passive income", "financial freedom", "retire early",
+  "nfa", "dyor", "not financial advice",
+  // Tickers
   "$tsla", "$aapl", "$amzn", "$goog", "$msft", "$nvda", "$spy", "$btc",
-  "nfa", "dyor", "not financial advice", "to the moon",
-  "10x", "100x", "guaranteed returns", "free money"
+  // General
+  "invest", "investing", "investment", "trader", "bull", "bear",
+  "roi", "yield", "apy", "apr", "market cap",
+  "get rich", "guaranteed", "sure thing"
 ];
 
 const processedPosts = new Set();
@@ -84,9 +93,23 @@ function transformResponse(data) {
     if (ca.classification?.label === "LIKELY_FALSE") flags.push("Likely false claim detected");
   }
 
+  // Surface risk assessment signals
+  const risk = data.risk_assessment;
+  if (risk) {
+    if (risk.risk_level === "high") flags.push(`⚠️ High risk score (${risk.risk_score})`);
+    else if (risk.risk_level === "medium") flags.push(`Risk score: ${risk.risk_score} (medium)`);
+    if (risk.signals?.phrases?.length > 0) {
+      flags.push(`Risky phrases: ${risk.signals.phrases.slice(0, 3).join(", ")}`);
+    }
+    if (risk.signals?.keywords?.hype?.length > 0) {
+      flags.push(`Hype language: ${risk.signals.keywords.hype.slice(0, 3).join(", ")}`);
+    }
+  }
+
   return {
     trust_score: data.trust_score ?? 50,
     explanation: data.explanation || "",
+    risk_explanation: risk?.explanation || "",
     claims,
     flags: [...new Set(flags)],
   };

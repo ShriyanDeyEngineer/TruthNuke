@@ -207,6 +207,17 @@ class ClaimAnalysis(BaseModel):
     deduction_references: list[DeductionReference | NoCorroborationDeduction]
 
 
+class RiskAssessment(BaseModel):
+    """Multi-signal risk assessment for the analyzed content.
+
+    Layered scoring from keywords, phrase patterns, and claim analysis.
+    """
+    risk_score: int = Field(..., ge=0, description="Composite risk score")
+    risk_level: str = Field(..., description="low | medium | high")
+    signals: dict = Field(default_factory=dict, description="Breakdown of keyword, phrase, and claim signals")
+    explanation: str = Field(default="", description="Human-readable risk explanation")
+
+
 class AnalysisResponse(BaseModel):
     """Response model for the POST /analyze endpoint.
     
@@ -227,6 +238,7 @@ class AnalysisResponse(BaseModel):
     trust_score_breakdown: TrustScoreBreakdown | None
     explanation: str
     sources: list[SearchResult]
+    risk_assessment: Optional[RiskAssessment] = None
     disclaimer: str = (
         "This analysis is an automated assessment and not a definitive judgment "
         "of truth. Please review the referenced sources to form your own conclusions."
