@@ -659,33 +659,3 @@ body {
 }
 
 
-
-/* ── Sources ── */
-.current-sources {
-  background: #1a1a2e;
-  border-radius: 10px;
-  padding: 12px;
-  margin-top: 10px;
-  border: 1px solid #2a2a4a;
-}
-
-.source-item {
-  font-size: 11px;
-  color: #93c5fd;
-  padding: 4px 0;
-  border-bottom: 1px solid #12122a;
-}
-
-.source-item:last-child {
-  border-bottom: none;
-}
-
-.claim-sources {
-  margin-top: 4px;
-}
-
-.claim-source {
-  font-size: 10px;
-  color: #93c5fd;
-  padding: 2px 0;
-}
