@@ -173,11 +173,66 @@ async def analyze(
     description="Returns the health status and version of the API.",
 )
 async def health_check() -> dict:
-    """Health check endpoint.
-    
-    Returns the current health status and version of the API.
-    
-    Returns:
-        Dictionary with status and version information.
-    """
+    """Health check endpoint."""
     return {"status": "ok", "version": "0.1.0"}
+
+
+@router.post("/chat")
+async def chat_with_feed(
+    request: dict,
+    analyzer: Annotated[Analyzer, Depends(get_analyzer)],
+) -> dict:
+    """Chat endpoint that answers questions about the user's analyzed feed.
+
+    The extension sends the user's question along with their stored feed
+    data. The LLM answers using that context.
+    """
+    question = request.get("question", "").strip()
+    feed_items = request.get("feed", [])
+
+    if not question:
+        raise HTTPException(status_code=400, detail={"error": "validation_error", "detail": "Question is required."})
+
+    # Build context from feed items
+    context_parts = []
+    for i, item in enumerate(feed_items[:50], 1):
+        ts = item.get("timestamp")
+        date_str = ""
+        if ts:
+            from datetime import datetime
+            try:
+                dt = datetime.fromtimestamp(ts / 1000)
+                date_str = dt.strftime("%A, %B %d, %Y at %I:%M %p")
+            except Exception:
+                date_str = str(ts)
+        platform = item.get("platform", "unknown")
+        author = item.get("author", "unknown")
+        text = item.get("text", "")[:300]
+        score = item.get("trust_score", "N/A")
+        context_parts.append(
+            f"[{i}] Platform: {platform} | Author: @{author} | "
+            f"Date: {date_str} | Trust Score: {score}\n"
+            f"Content: {text}"
+        )
+
+    feed_context = "\n\n".join(context_parts) if context_parts else "No articles in the feed yet."
+
+    system_prompt = (
+        "You are TruthNuke's research assistant. The user has a feed of analyzed "
+        "financial articles/posts. Answer their question using ONLY the feed data "
+        "provided below. If the user asks about articles on a specific day, platform, "
+        "or topic, filter the feed accordingly and list matching items. "
+        "Be concise and helpful. If no matching data exists, say so.\n\n"
+        f"=== USER'S ANALYZED FEED ({len(feed_items)} items) ===\n{feed_context}"
+    )
+
+    if not analyzer.claim_extractor or not hasattr(analyzer.claim_extractor, 'llm_client'):
+        return {"answer": "Chat is unavailable — LLM service not configured."}
+
+    llm = analyzer.claim_extractor.llm_client
+    try:
+        answer = await llm.complete(prompt=question, system_prompt=system_prompt)
+        return {"answer": answer}
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        return {"answer": "Sorry, I couldn't process that question right now. Please try again."}

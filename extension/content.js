@@ -106,12 +106,31 @@ function transformResponse(data) {
     }
   }
 
+  // Extract affected assets from claim entities
+  const affectedAssets = [];
+  const seenAssets = new Set();
+  for (const ca of data.claims || []) {
+    const entities = ca.claim?.entities || [];
+    const claimType = ca.claim?.type || "";
+    const label = ca.classification?.label || "";
+    for (const entity of entities) {
+      if (seenAssets.has(entity.toLowerCase())) continue;
+      seenAssets.add(entity.toLowerCase());
+      let impact = "may be affected";
+      if (label === "LIKELY_FALSE" || label === "HARMFUL") impact = "mentioned in potentially misleading context";
+      else if (label === "VERIFIED") impact = "mentioned in verified reporting";
+      else if (label === "MISLEADING") impact = "mentioned — verify independently";
+      affectedAssets.push({ name: entity, type: claimType, impact });
+    }
+  }
+
   return {
     trust_score: data.trust_score ?? 50,
     explanation: data.explanation || "",
     risk_explanation: risk?.explanation || "",
     claims,
     flags: [...new Set(flags)],
+    affected_assets: affectedAssets,
   };
 }
 

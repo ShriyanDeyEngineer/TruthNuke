@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <!-- Loading / progress indicator (shown during analysis) -->
+      <!-- Loading indicator -->
       <div class="loading-card" id="loadingCard" style="display:none;">
         <div class="card-title">Analyzing</div>
         <div class="loading-progress-bar">
@@ -58,7 +58,7 @@
         <div class="loading-timer" id="loadingTimer"></div>
       </div>
 
-      <!-- Current Post Analysis (if viewing one) -->
+      <!-- Current Post Analysis -->
       <div class="current-post-card" id="currentPostCard" style="display:none;">
         <div class="card-title">Current Post</div>
         <div class="score-ring-container">
@@ -75,6 +75,16 @@
         <div class="current-explanation" id="currentExplanation"></div>
         <div class="current-flags" id="currentFlags"></div>
         <div class="current-claims" id="currentClaims"></div>
+
+        <!-- Affected Assets -->
+        <div class="affected-assets" id="affectedAssets" style="display:none;">
+          <div class="card-title">📈 Potentially Affected Assets</div>
+          <div id="assetsList"></div>
+          <div class="assets-disclaimer">
+            ⚠️ TruthNuke is not a financial advisor. This is not investment advice. Always do your own research (DYOR) before making any financial decisions.
+          </div>
+        </div>
+
         <div class="current-sources" id="currentSources" style="display:none;"></div>
       </div>
 
@@ -85,7 +95,7 @@
         <p class="empty-hint">TruthNuke will automatically analyze visible posts when you pause.</p>
       </div>
 
-      <!-- Trust distribution bar -->
+      <!-- Trust distribution -->
       <div class="distribution-card" id="distributionCard" style="display:none;">
         <div class="card-title">Trust Distribution</div>
         <div class="dist-bar">
@@ -99,6 +109,19 @@
           <span class="legend-item"><span class="legend-dot low"></span>Unreliable</span>
         </div>
       </div>
+
+      <!-- Ad Box + Go Ad-Free -->
+      <div class="ad-container">
+        <div class="ad-box">
+          <div class="ad-label">ADVERTISEMENT</div>
+          <div class="ad-placeholder">
+            <div class="ad-icon">📢</div>
+            <div class="ad-text">Your Ad Here</div>
+            <div class="ad-subtext">Reach financially-savvy users</div>
+          </div>
+        </div>
+        <button class="ad-free-btn" id="goAdFreeBtn">Go Ad-Free — only $2.99</button>
+      </div>
     </section>
 
     <!-- Live Feed Tab -->
@@ -107,6 +130,19 @@
         <div class="feed-empty">
           <div class="empty-icon">📡</div>
           <p>No posts analyzed yet. Stop scrolling on a financial post to see results here.</p>
+        </div>
+      </div>
+
+      <!-- Search / Chat Bar -->
+      <div class="feed-search-container">
+        <div class="card-title">🔍 Ask About Your Feed</div>
+        <div class="search-input-row">
+          <input type="text" id="feedSearchInput" placeholder="e.g. What articles did I view about Tesla?" />
+          <button id="feedSearchBtn">Ask</button>
+        </div>
+        <div class="search-answer" id="searchAnswer" style="display:none;"></div>
+        <div class="search-hint">
+          Try: "What did I see on Facebook?" · "Articles about crypto" · "What was flagged as misleading?"
         </div>
       </div>
     </section>

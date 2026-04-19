@@ -36,6 +36,8 @@ async function init() {
   await loadStoredData();
   listenForUpdates();
   setupSettings();
+  setupFeedSearch();
+  setupAdFree();
 }
 
 // ── Tab Navigation ──
@@ -349,6 +351,24 @@ function showCurrentPost(data) {
       sourcesEl.style.display = "none";
     }
   }
+
+  // Affected assets
+  const assetsEl = document.getElementById("affectedAssets");
+  const assetsListEl = document.getElementById("assetsList");
+  if (assetsEl && assetsListEl) {
+    const assets = data.affected_assets || [];
+    if (assets.length > 0) {
+      assetsListEl.innerHTML = assets.map((a) => `
+        <div class="asset-item">
+          <span class="asset-ticker">${escapeHtml(a.name)}</span>
+          <span class="asset-type">${escapeHtml(a.type || "")}</span>
+          <span class="asset-impact">${escapeHtml(a.impact || "may be affected")}</span>
+        </div>`).join("");
+      assetsEl.style.display = "block";
+    } else {
+      assetsEl.style.display = "none";
+    }
+  }
 }
 
 // ── Trust Distribution ──
@@ -416,6 +436,68 @@ function getTimeAgo(timestamp) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+// ── Feed Search / Chat ──
+function setupFeedSearch() {
+  const input = document.getElementById("feedSearchInput");
+  const btn = document.getElementById("feedSearchBtn");
+  const answerEl = document.getElementById("searchAnswer");
+  if (!input || !btn) return;
+
+  async function doSearch() {
+    const question = input.value.trim();
+    if (!question) return;
+
+    btn.disabled = true;
+    btn.textContent = "...";
+    answerEl.style.display = "block";
+    answerEl.textContent = "Thinking...";
+
+    const data = await chrome.storage.local.get(["analysisResults", "apiUrl"]);
+    const apiUrl = data.apiUrl || "http://localhost:8000";
+    const feed = (data.analysisResults || []).map((r) => ({
+      platform: r.platform,
+      author: r.author,
+      text: r.text,
+      trust_score: r.trust_score,
+      timestamp: r.timestamp,
+    }));
+
+    try {
+      const resp = await fetch(`${apiUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, feed }),
+      });
+      const result = await resp.json();
+      answerEl.textContent = result.answer || "No answer available.";
+    } catch (err) {
+      answerEl.textContent = "Could not reach the backend. Make sure it's running.";
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Ask";
+  }
+
+  btn.addEventListener("click", doSearch);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doSearch();
+  });
+}
+
+// ── Ad-Free Button ──
+function setupAdFree() {
+  const btn = document.getElementById("goAdFreeBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    btn.textContent = "✓ Thanks for your interest!";
+    btn.style.background = "#34d399";
+    setTimeout(() => {
+      btn.textContent = "Go Ad-Free — only $2.99";
+      btn.style.background = "";
+    }, 2000);
+  });
 }
 
 // ── Start ──
