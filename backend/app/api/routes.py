@@ -18,7 +18,7 @@ from app.models.schemas import (
     ErrorResponse,
 )
 from app.services.analyzer import Analyzer, ValidationError
-from app.services.llm_client import LLMUnavailableError
+from app.services.llm_client import LLMUnavailableError, LLMParsingError
 
 
 logger = logging.getLogger(__name__)
@@ -141,6 +141,17 @@ async def analyze(
             detail={
                 "error": "service_unavailable",
                 "detail": "Analysis service is temporarily unavailable. Please try again later.",
+            },
+        )
+        
+    except LLMParsingError as e:
+        # Return 502 when LLM returns unparseable response
+        logger.error(f"LLM returned invalid response: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "llm_response_error",
+                "detail": "The AI model returned an invalid response. Please try again.",
             },
         )
         

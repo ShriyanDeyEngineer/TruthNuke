@@ -16,7 +16,7 @@ from app.models.schemas import (
     ClassificationResult,
     EvidenceSet,
 )
-from app.services.llm_client import LLMClient
+from app.services.llm_client import LLMClient, LLMParsingError
 
 
 logger = logging.getLogger(__name__)
@@ -114,12 +114,22 @@ class Classifier:
         
         logger.debug(f"Classifying claim {claim.id}: {claim.text[:100]}...")
         
-        response = await self.llm_client.complete_json(
-            prompt=prompt,
-            system_prompt=CLASSIFICATION_SYSTEM_PROMPT,
-        )
-        
-        return self._parse_classification_response(response, claim.id)
+        try:
+            response = await self.llm_client.complete_json(
+                prompt=prompt,
+                system_prompt=CLASSIFICATION_SYSTEM_PROMPT,
+            )
+            return self._parse_classification_response(response, claim.id)
+        except LLMParsingError as e:
+            logger.warning(
+                f"LLM returned unparseable JSON for claim {claim.id}, "
+                f"using fallback classification: {e}"
+            )
+            return ClassificationResult(
+                claim_id=claim.id,
+                label=ClassificationLabel.MISLEADING,
+                reasoning="Classification could not be fully determined due to an AI response error. Marked as potentially misleading as a precaution.",
+            )
     
     def _build_classification_prompt(
         self, claim: Claim, evidence: EvidenceSet

@@ -232,6 +232,10 @@ class Analyzer:
         claims: list[Claim] = []
         if self.claim_extractor:
             claims = await self.claim_extractor.extract_claims(normalized_text)
+            # Limit to 5 most important claims to keep response times reasonable
+            if len(claims) > 5:
+                logger.info(f"Limiting {len(claims)} claims to top 5")
+                claims = claims[:5]
             logger.info(f"Extracted {len(claims)} claims")
         
         # Handle no claims found (Req 12.1)
