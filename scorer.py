@@ -24,20 +24,25 @@ def calculate_trust_score(
     manipulation = max(0, min(100, manipulation))
     score = 100 - manipulation
 
-    # Red flags: -5 each, capped at -25
+    # Red flags: -7 each, capped at -35
     flags = analysis.get("flags", [])
-    score -= min(len(flags) * 5, 25)
+    score -= min(len(flags) * 7, 35)
 
-    # Claim verdicts
+    # Claim verdicts — harsh on misleading content
     claims = analysis.get("claims", [])
     for claim in claims:
         verdict = claim.get("verdict", "questionable")
         if verdict == "verified":
             score += 3
         elif verdict == "misleading":
-            score -= 10
+            score -= 15
         elif verdict == "questionable":
-            score -= 5
+            score -= 7
+
+    # Any misleading claim at all should cap the score below "Trustworthy"
+    has_misleading = any(c.get("verdict") == "misleading" for c in claims)
+    if has_misleading and score > 55:
+        score = 55
 
     # Clamp to 0-100
     return max(0, min(100, score))

@@ -674,15 +674,73 @@ const PLATFORMS = {
 };
 
 /**
+ * Generic article detector for any website not explicitly listed above.
+ * Checks if the page looks like a news article (has <article>, h1, paragraphs, etc.)
+ */
+const GENERIC_NEWS = {
+  name: location.hostname.replace("www.", ""),
+  match: () => true, // Fallback — only used if no specific platform matched
+  isNews: true,
+
+  getPostElements: () => {
+    // Only activate on pages that look like articles (not homepages, search pages, etc.)
+    const article = document.querySelector("article");
+    const h1 = document.querySelector("h1");
+    const paragraphs = document.querySelectorAll("article p, main p, .article p, .post p, .entry-content p");
+
+    // Need at least a headline and some paragraphs to look like an article
+    if (h1 && paragraphs.length >= 3) {
+      return [article || document.querySelector("main") || document.body];
+    }
+    return [];
+  },
+
+  getPostId: () => location.href,
+
+  getPostText: (el) => extractArticleText(el),
+
+  getAuthor: () => {
+    // Try common author selectors across news sites
+    const byline = document.querySelector(
+      '[rel="author"], a[href*="/author/"], a[href*="/writers/"], ' +
+      '.author, .byline a, .author-name, .post-author, ' +
+      '[class*="author" i] a, [class*="byline" i] a, ' +
+      'meta[name="author"]'
+    );
+    if (byline?.tagName === "META") {
+      return { handle: byline.content || location.hostname, displayName: byline.content || location.hostname };
+    }
+    const name = byline?.textContent?.trim() || location.hostname.replace("www.", "");
+    return { handle: name, displayName: name };
+  },
+
+  getBadgeTarget: () => {
+    return document.querySelector("h1")?.parentElement || null;
+  },
+};
+
+/**
  * Detect which platform we're currently on.
  * Returns the platform adapter object or null.
+ * Falls back to generic article detection for unknown sites.
  */
 function detectPlatform() {
+  // Check specific platform adapters first
   for (const [key, platform] of Object.entries(PLATFORMS)) {
     if (platform.match()) {
       console.log(`🛡️ TruthNuke: Detected platform — ${platform.name}`);
       return { key, ...platform };
     }
   }
+
+  // Fall back to generic article detection for any other website
+  // Wait a moment for the page to load before checking
+  const h1 = document.querySelector("h1");
+  const paragraphs = document.querySelectorAll("article p, main p, .article p, .post p, .entry-content p");
+  if (h1 && paragraphs.length >= 3) {
+    console.log(`🛡️ TruthNuke: Generic article detected on ${location.hostname}`);
+    return { key: "generic", ...GENERIC_NEWS };
+  }
+
   return null;
 }

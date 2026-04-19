@@ -65,20 +65,38 @@ async function detectPlatformStatus() {
     pill.classList.remove("inactive");
     pill.querySelector(".status-text").textContent = "Active";
     label.textContent = `Monitoring ${match.icon} ${match.name}`;
-
+  } else {
+    // Check if content script is alive (generic article detection)
     try {
       const response = await chrome.tabs.sendMessage(currentTabId, { type: "PING" });
-      if (response?.status === "alive") {
+      if (response?.status === "alive" && response?.platform) {
+        pill.classList.add("active");
+        pill.classList.remove("inactive");
         pill.querySelector(".status-text").textContent = "Active";
+        label.textContent = `Monitoring 📄 ${new URL(url).hostname.replace("www.", "")}`;
+      } else {
+        pill.classList.add("inactive");
+        pill.classList.remove("active");
+        pill.querySelector(".status-text").textContent = "Inactive";
+        label.textContent = "No article detected on this page";
       }
     } catch {
-      pill.querySelector(".status-text").textContent = "Loading...";
+      pill.classList.add("inactive");
+      pill.classList.remove("active");
+      pill.querySelector(".status-text").textContent = "Inactive";
+      label.textContent = "No article detected on this page";
     }
-  } else {
-    pill.classList.add("inactive");
-    pill.classList.remove("active");
-    pill.querySelector(".status-text").textContent = "Inactive";
-    label.textContent = "Visit a supported site to start";
+    return;
+  }
+
+  // Known site — ping content script to confirm it's running
+  try {
+    const response = await chrome.tabs.sendMessage(currentTabId, { type: "PING" });
+    if (response?.status === "alive") {
+      pill.querySelector(".status-text").textContent = "Active";
+    }
+  } catch {
+    pill.querySelector(".status-text").textContent = "Loading...";
   }
 }
 

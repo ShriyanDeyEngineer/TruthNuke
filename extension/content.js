@@ -13,17 +13,26 @@ chrome.storage?.local?.get(["apiUrl"], (data) => {
 
 // Finance-related keywords to detect relevant posts
 const FINANCE_KEYWORDS = [
-  "stock", "stocks", "invest", "investing", "investment", "trader", "trading",
+  // Market terms
+  "stock", "stocks", "equity", "shares", "market", "portfolio", "dividend",
+  "earnings", "ipo", "etf", "mutual fund", "sp500", "s&p", "nasdaq", "dow", "nyse",
+  // Trading actions
+  "buy", "sell", "short", "long", "trade", "trading", "calls", "puts",
+  "options", "strike", "expiry", "forex", "leverage",
+  // Crypto
   "crypto", "bitcoin", "btc", "eth", "ethereum", "altcoin", "defi",
-  "buy", "sell", "short", "long", "bull", "bear", "moon", "pump", "dump",
-  "portfolio", "dividend", "earnings", "ipo", "etf", "mutual fund",
-  "forex", "options", "calls", "puts", "strike", "expiry",
-  "sp500", "s&p", "nasdaq", "dow", "nyse",
-  "passive income", "financial freedom", "retire early", "fire",
-  "roi", "yield", "apy", "apr", "market cap",
+  "nft", "blockchain", "token", "staking",
+  // Hype (high signal)
+  "guaranteed returns", "risk-free", "free money", "easy money",
+  "moon", "to the moon", "100x", "10x", "pump", "dump",
+  "passive income", "financial freedom", "retire early",
+  "nfa", "dyor", "not financial advice",
+  // Tickers
   "$tsla", "$aapl", "$amzn", "$goog", "$msft", "$nvda", "$spy", "$btc",
-  "nfa", "dyor", "not financial advice", "to the moon",
-  "10x", "100x", "guaranteed returns", "free money"
+  // General
+  "invest", "investing", "investment", "trader", "bull", "bear",
+  "roi", "yield", "apy", "apr", "market cap",
+  "get rich", "guaranteed", "sure thing"
 ];
 
 // Track which posts we've already processed
