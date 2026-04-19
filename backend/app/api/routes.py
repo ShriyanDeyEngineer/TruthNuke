@@ -198,21 +198,29 @@ async def chat_with_feed(
     for i, item in enumerate(feed_items[:50], 1):
         ts = item.get("timestamp")
         date_str = ""
+        day_of_week = ""
         if ts:
             from datetime import datetime
             try:
                 dt = datetime.fromtimestamp(ts / 1000)
                 date_str = dt.strftime("%A, %B %d, %Y at %I:%M %p")
+                day_of_week = dt.strftime("%A")
             except Exception:
                 date_str = str(ts)
         platform = item.get("platform", "unknown")
         author = item.get("author", "unknown")
-        text = item.get("text", "")[:300]
+        author_name = item.get("author_name", author)
+        text = item.get("text", "")
         score = item.get("trust_score", "N/A")
+        explanation = item.get("explanation", "")
+        claims_list = item.get("claims", [])
+        claims_text = "; ".join(c.get("claim", "")[:100] for c in claims_list) if claims_list else "none extracted"
         context_parts.append(
-            f"[{i}] Platform: {platform} | Author: @{author} | "
-            f"Date: {date_str} | Trust Score: {score}\n"
-            f"Content: {text}"
+            f"[{i}] Platform: {platform} | Author: @{author} ({author_name}) | "
+            f"Day: {day_of_week} | Date: {date_str} | Trust Score: {score}\n"
+            f"Content: {text}\n"
+            f"Claims: {claims_text}\n"
+            f"Summary: {explanation[:200] if explanation else 'N/A'}"
         )
 
     feed_context = "\n\n".join(context_parts) if context_parts else "No articles in the feed yet."
@@ -220,9 +228,15 @@ async def chat_with_feed(
     system_prompt = (
         "You are TruthNuke's research assistant. The user has a feed of analyzed "
         "financial articles/posts. Answer their question using ONLY the feed data "
-        "provided below. If the user asks about articles on a specific day, platform, "
-        "or topic, filter the feed accordingly and list matching items. "
-        "Be concise and helpful. If no matching data exists, say so.\n\n"
+        "provided below.\n\n"
+        "RULES:\n"
+        "- When listing articles, ALWAYS include: Author, Platform, Date, Trust Score, "
+        "and a one-sentence description of the content.\n"
+        "- Format each article as a numbered item.\n"
+        "- If the user asks about a specific day (e.g. Saturday), filter by the Day field.\n"
+        "- If the user asks about a specific platform, filter by Platform.\n"
+        "- If the user asks about a specific stock or topic, search the Content and Claims fields.\n"
+        "- Be concise and helpful. If no matching data exists, say so clearly.\n\n"
         f"=== USER'S ANALYZED FEED ({len(feed_items)} items) ===\n{feed_context}"
     )
 

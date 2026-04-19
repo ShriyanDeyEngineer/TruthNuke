@@ -270,7 +270,7 @@ function renderFeed() {
         <div class="feed-score-badge ${level}">${r.trust_score}</div>
         <div class="feed-info">
           <div class="feed-author">@${r.author || "unknown"}</div>
-          <div class="feed-text">${escapeHtml(r.text?.slice(0, 80) || "")}</div>
+          <div class="feed-text">${escapeHtml(r.text?.slice(0, 120) || "")}</div>
           <div class="feed-meta">
             <span class="feed-platform">${platformName}</span>
             <span class="feed-time">${timeAgo}</span>
@@ -459,9 +459,12 @@ function setupFeedSearch() {
     const feed = (data.analysisResults || []).map((r) => ({
       platform: r.platform,
       author: r.author,
+      author_name: r.author_name || r.author,
       text: r.text,
       trust_score: r.trust_score,
       timestamp: r.timestamp,
+      explanation: r.explanation || "",
+      claims: r.claims || [],
     }));
 
     try {

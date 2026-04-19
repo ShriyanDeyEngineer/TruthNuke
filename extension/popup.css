@@ -868,3 +868,31 @@ body {
   color: #fbbf24;
   line-height: 1.4;
 }
+
+
+/* ── Fix text truncation in claims ── */
+.claim-verdict {
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.claim-text {
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.feed-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.search-answer {
+  max-height: 300px;
+  overflow-y: auto;
+}

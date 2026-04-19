@@ -78,7 +78,7 @@ function transformResponse(data) {
   const claims = (data.claims || []).map((ca) => ({
     claim: ca.claim?.text || "",
     verdict: (ca.classification?.label || "").toLowerCase().replace("_", " "),
-    explanation: ca.classification?.reasoning?.slice(0, 150) || "",
+    explanation: ca.classification?.reasoning || "",
   }));
 
   const flags = [];
@@ -221,7 +221,7 @@ async function analyzePost(postElement) {
 
     chrome.runtime.sendMessage({
       type: "ANALYSIS_RESULT",
-      data: { ...data, author: authorInfo.handle, author_name: authorInfo.displayName, text: postText.slice(0, 200), platform: platform.key, timestamp: Date.now() },
+      data: { ...data, author: authorInfo.handle, author_name: authorInfo.displayName, text: postText.slice(0, 1000), platform: platform.key, timestamp: Date.now() },
     }).catch(() => {});
 
     const badge = createBadge(data.trust_score, { ...data, author: authorInfo.handle });
