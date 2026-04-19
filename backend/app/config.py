@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     )
     
     # LLM configuration with defaults
+    llm_base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL for the LLM API (for OpenAI-compatible providers)",
+    )
     llm_model: str = Field(
         default="gpt-4o-mini",
         description="LLM model to use for inference",

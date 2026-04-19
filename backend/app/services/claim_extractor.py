@@ -152,11 +152,22 @@ Remember to provide exact start_index and end_index values that correspond to th
                 if self._validate_claim_indices(claim, text):
                     valid_claims.append(claim)
                 else:
-                    logger.warning(
-                        f"Filtered out claim with invalid indices: "
-                        f"text='{claim.text}', start={claim.start_index}, "
-                        f"end={claim.end_index}"
-                    )
+                    # Try to auto-correct indices by finding the claim text nearby
+                    fixed_claim = self._try_fix_indices(claim, text)
+                    if fixed_claim is not None:
+                        valid_claims.append(fixed_claim)
+                        logger.info(
+                            f"Auto-corrected claim indices: "
+                            f"text='{fixed_claim.text}', "
+                            f"start={fixed_claim.start_index}, "
+                            f"end={fixed_claim.end_index}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Filtered out claim with invalid indices: "
+                            f"text='{claim.text}', start={claim.start_index}, "
+                            f"end={claim.end_index}"
+                        )
             except (KeyError, TypeError, ValueError) as e:
                 logger.warning(f"Skipping malformed claim data: {claim_data}. Error: {e}")
                 continue
@@ -294,3 +305,35 @@ Remember to provide exact start_index and end_index values that correspond to th
             return False
         
         return True
+
+    def _try_fix_indices(self, claim: Claim, original_text: str) -> Claim | None:
+        """Try to find the correct indices for a claim by searching the text.
+        
+        When the LLM returns indices that don't exactly match, this method
+        searches for the claim text in the original text and returns a
+        corrected Claim if found.
+        
+        Args:
+            claim: The Claim with potentially incorrect indices.
+            original_text: The original text to search in.
+        
+        Returns:
+            A new Claim with corrected indices, or None if the text can't be found.
+        """
+        claim_text = claim.text.strip()
+        if not claim_text:
+            return None
+        
+        # Try exact match anywhere in the text
+        idx = original_text.find(claim_text)
+        if idx != -1:
+            return Claim(
+                id=claim.id,
+                text=claim_text,
+                start_index=idx,
+                end_index=idx + len(claim_text),
+                type=claim.type,
+                entities=claim.entities,
+            )
+        
+        return None

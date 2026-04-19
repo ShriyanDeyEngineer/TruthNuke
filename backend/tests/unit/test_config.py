@@ -32,10 +32,11 @@ class TestSettings:
         # Create a clean environment without LLM_API_KEY
         env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(Exception) as exc_info:
-                Settings()
-            # The error should mention LLM_API_KEY
-            assert "LLM_API_KEY" in str(exc_info.value) or "llm_api_key" in str(exc_info.value)
+            with patch.object(Settings, 'model_config', {**Settings.model_config, 'env_file': None}):
+                with pytest.raises(Exception) as exc_info:
+                    Settings(_env_file=None)
+                # The error should mention LLM_API_KEY
+                assert "LLM_API_KEY" in str(exc_info.value) or "llm_api_key" in str(exc_info.value)
 
     def test_settings_empty_api_key_raises_error(self):
         """Test that empty LLM_API_KEY raises a validation error."""
@@ -53,8 +54,12 @@ class TestSettings:
 
     def test_default_llm_model(self):
         """Test that LLM_MODEL defaults to gpt-4o-mini."""
-        with patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
-            settings = Settings()
+        env = {"LLM_API_KEY": "test-key"}
+        # Remove LLM_MODEL from env if present so default is used
+        clean_env = {k: v for k, v in os.environ.items() if k not in ("LLM_MODEL", "LLM_BASE_URL", "LLM_TIMEOUT")}
+        clean_env["LLM_API_KEY"] = "test-key"
+        with patch.dict(os.environ, clean_env, clear=True):
+            settings = Settings(_env_file=None)
             assert settings.llm_model == "gpt-4o-mini"
 
     def test_custom_llm_model(self):
@@ -69,8 +74,10 @@ class TestSettings:
 
     def test_default_llm_timeout(self):
         """Test that LLM_TIMEOUT defaults to 30.0."""
-        with patch.dict(os.environ, {"LLM_API_KEY": "test-key"}, clear=False):
-            settings = Settings()
+        clean_env = {k: v for k, v in os.environ.items() if k not in ("LLM_TIMEOUT", "LLM_MODEL", "LLM_BASE_URL")}
+        clean_env["LLM_API_KEY"] = "test-key"
+        with patch.dict(os.environ, clean_env, clear=True):
+            settings = Settings(_env_file=None)
             assert settings.llm_timeout == 30.0
 
     def test_custom_llm_timeout(self):
@@ -257,6 +264,10 @@ class TestGetSettings:
         env = {k: v for k, v in os.environ.items() if k != "LLM_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
             get_settings.cache_clear()
-            with pytest.raises(ConfigurationError) as exc_info:
-                get_settings()
-            assert "configuration" in str(exc_info.value).lower()
+            with patch.object(Settings, 'model_config', {**Settings.model_config, 'env_file': None}):
+                with pytest.raises(ConfigurationError) as exc_info:
+                    # Force Settings to not read .env file
+                    with patch('app.config.Settings', lambda **kwargs: Settings(_env_file=None, **kwargs)):
+                        get_settings.cache_clear()
+                        get_settings()
+                assert "configuration" in str(exc_info.value).lower()

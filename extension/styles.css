@@ -1,0 +1,208 @@
+.fintrust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-left: 8px;
+  vertical-align: middle;
+  line-height: 1.4;
+  position: relative;
+}
+
+.fintrust-badge:hover {
+  opacity: 0.85;
+}
+
+.fintrust-badge.trust-high {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+
+.fintrust-badge.trust-medium {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.fintrust-badge.trust-low {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.fintrust-badge.trust-loading {
+  background-color: #e5e7eb;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.fintrust-badge .badge-icon {
+  font-size: 14px;
+}
+
+/* Tooltip that appears on click */
+.fintrust-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 10000;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  line-height: 1.5;
+  display: none;
+}
+
+.fintrust-tooltip.visible {
+  display: block;
+}
+
+.fintrust-tooltip .tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
+.fintrust-tooltip .tooltip-score {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.fintrust-tooltip .tooltip-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+}
+
+.fintrust-tooltip .tooltip-flags {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.fintrust-tooltip .tooltip-flags li {
+  padding: 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.fintrust-tooltip .tooltip-flags li::before {
+  content: "⚠️";
+  font-size: 12px;
+}
+
+.fintrust-tooltip .tooltip-explanation {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2a4a;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.fintrust-tooltip .tooltip-claims {
+  margin-top: 8px;
+}
+
+.fintrust-tooltip .claim-item {
+  background: #2a2a4a;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+
+.fintrust-tooltip .claim-text {
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+.fintrust-tooltip .claim-verdict {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.fintrust-tooltip .claim-verdict.verified {
+  color: #6ee7b7;
+}
+
+.fintrust-tooltip .claim-verdict.questionable {
+  color: #fcd34d;
+}
+
+.fintrust-tooltip .claim-verdict.misleading {
+  color: #fca5a5;
+}
+
+/* ── News article badge (displayed near headline) ── */
+.fintrust-badge-article-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+/* Make badge more prominent on article pages */
+article .fintrust-badge,
+main .fintrust-badge {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  margin-left: 0;
+  margin-top: 8px;
+  display: inline-flex;
+}
+
+/* Ensure tooltip is readable on light-background news sites */
+article .fintrust-tooltip,
+main .fintrust-tooltip {
+  z-index: 99999;
+}
+
+/* ── Loading spinner ── */
+.fintrust-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #9ca3af;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: fintrust-spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+@keyframes fintrust-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error / timeout badge ── */
+.fintrust-badge.trust-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.fintrust-retry {
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.fintrust-retry:hover {
+  opacity: 0.7;
+}

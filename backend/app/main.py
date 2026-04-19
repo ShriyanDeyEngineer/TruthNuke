@@ -7,13 +7,13 @@ Requirements: 8.5, 13.1, 13.2, 13.3
 """
 
 import logging
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import configure_analyzer, router
+from app.config import get_settings, ConfigurationError
 from app.services.analyzer import Analyzer
 from app.services.claim_extractor import ClaimExtractor
 from app.services.classifier import Classifier
@@ -42,56 +42,42 @@ def create_analyzer() -> Analyzer:
     Returns:
         Configured Analyzer instance.
     
-    Raises:
-        ValueError: If required configuration (LLM_API_KEY) is missing.
-    
     Requirements: 13.1, 13.2, 13.3
     """
-    # Get LLM API key from environment (required)
-    llm_api_key = os.environ.get("LLM_API_KEY", "").strip()
-    
-    if not llm_api_key:
+    try:
+        settings = get_settings()
+    except ConfigurationError:
         logger.warning(
-            "LLM_API_KEY not set. Running in limited mode without LLM services."
+            "Configuration error. Running in limited mode without LLM services."
         )
-        # Return analyzer without LLM-dependent services
         return Analyzer(
             claim_extractor=None,
             rag_pipeline=RAGPipeline(
                 search_provider=MockSearchProvider(),
-                top_k=int(os.environ.get("TOP_K", "5")),
+                top_k=5,
             ),
             classifier=None,
             trust_score_engine=TrustScoreEngine(),
             explanation_engine=None,
-            max_input_length=int(os.environ.get("MAX_INPUT_LENGTH", "50000")),
         )
     
-    # Get LLM configuration from environment
-    llm_model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
-    llm_timeout = float(os.environ.get("LLM_TIMEOUT", "30.0"))
-    llm_max_retries = int(os.environ.get("LLM_MAX_RETRIES", "3"))
-    
-    # Create LLM client
+    # Create LLM client with settings
     llm_client = LLMClient(
-        api_key=llm_api_key,
-        model=llm_model,
-        timeout=llm_timeout,
-        max_retries=llm_max_retries,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        timeout=settings.llm_timeout,
+        max_retries=settings.llm_max_retries,
+        base_url=settings.llm_base_url,
     )
     
-    # Get RAG configuration
-    top_k = int(os.environ.get("TOP_K", "5"))
-    
     # Create search provider (use MockSearchProvider for Phase 1)
-    # In Phase 2, this will check for news/financial API keys and use live providers
     search_provider = MockSearchProvider()
     logger.info("Using MockSearchProvider for evidence retrieval")
     
     # Create RAG pipeline
     rag_pipeline = RAGPipeline(
         search_provider=search_provider,
-        top_k=top_k,
+        top_k=settings.top_k,
     )
     
     # Create services
@@ -100,9 +86,6 @@ def create_analyzer() -> Analyzer:
     trust_score_engine = TrustScoreEngine()
     explanation_engine = ExplanationEngine(llm_client)
     
-    # Get max input length from environment
-    max_input_length = int(os.environ.get("MAX_INPUT_LENGTH", "50000"))
-    
     # Create and return the Analyzer
     analyzer = Analyzer(
         claim_extractor=claim_extractor,
@@ -110,12 +93,13 @@ def create_analyzer() -> Analyzer:
         classifier=classifier,
         trust_score_engine=trust_score_engine,
         explanation_engine=explanation_engine,
-        max_input_length=max_input_length,
+        max_input_length=settings.max_input_length,
     )
     
     logger.info(
-        f"Analyzer configured with LLM model={llm_model}, "
-        f"top_k={top_k}, max_input_length={max_input_length}"
+        f"Analyzer configured with LLM model={settings.llm_model}, "
+        f"base_url={settings.llm_base_url}, "
+        f"top_k={settings.top_k}, max_input_length={settings.max_input_length}"
     )
     
     return analyzer
@@ -156,19 +140,24 @@ app = FastAPI(
 )
 
 # Configure CORS middleware with allowed origin from environment (Req 8.5)
-cors_origin = os.environ.get("CORS_ORIGIN", "http://localhost:3000")
+try:
+    _settings = get_settings()
+    cors_origin = _settings.cors_origin
+except ConfigurationError:
+    cors_origin = "http://localhost:3000"
 logger.info(f"Configuring CORS with allowed origin: {cors_origin}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[cors_origin],
+    allow_origins=["*"],  # Allow all origins (needed for Chrome extension)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include the API router
+# Include the API router at both / and /api (extension calls /api/analyze)
 app.include_router(router)
+app.include_router(router, prefix="/api")
 
 
 def main() -> None:

@@ -88,6 +88,7 @@ class LLMClient:
         model: str = "gpt-4o-mini",
         timeout: float = 30.0,
         max_retries: int = 3,
+        base_url: str | None = None,
     ) -> None:
         """Initialize the LLM client.
         
@@ -96,6 +97,7 @@ class LLMClient:
             model: Model identifier to use for completions.
             timeout: Timeout in seconds for API calls.
             max_retries: Maximum number of retry attempts for transient errors.
+            base_url: Optional base URL for OpenAI-compatible providers.
         
         Raises:
             ValueError: If api_key is empty or None.
@@ -109,10 +111,14 @@ class LLMClient:
         self.max_retries = max_retries
         
         # Initialize the async OpenAI client
-        self._client = AsyncOpenAI(
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
+        client_kwargs: dict = {
+            "api_key": self.api_key,
+            "timeout": self.timeout,
+        }
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        
+        self._client = AsyncOpenAI(**client_kwargs)
     
     async def complete(self, prompt: str, system_prompt: str = "") -> str:
         """Send a prompt to the LLM and return the response text.

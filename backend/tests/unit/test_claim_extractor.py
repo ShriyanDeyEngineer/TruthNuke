@@ -194,7 +194,7 @@ class TestClaimExtractorExtractClaims:
     
     @pytest.mark.asyncio
     async def test_extract_claims_filters_invalid_end_index_less_than_start(self, extractor, mock_llm_client):
-        """Test that claims with end_index <= start_index are filtered out.
+        """Test that claims with end_index <= start_index are auto-corrected if text is found.
         
         Validates: Requirements 2.1
         """
@@ -213,15 +213,16 @@ class TestClaimExtractorExtractClaims:
             ]
         })
         
-        with patch("app.services.claim_extractor.logger") as mock_logger:
-            claims = await extractor.extract_claims(text)
-            
-            assert len(claims) == 0
-            mock_logger.warning.assert_called()
+        claims = await extractor.extract_claims(text)
+        
+        # Auto-correction finds the text at position 0
+        assert len(claims) == 1
+        assert claims[0].start_index == 0
+        assert claims[0].end_index == 26
     
     @pytest.mark.asyncio
     async def test_extract_claims_filters_end_index_exceeds_text_length(self, extractor, mock_llm_client):
-        """Test that claims with end_index exceeding text length are filtered out.
+        """Test that claims with end_index exceeding text length are auto-corrected if text is found.
         
         Validates: Requirements 2.1
         """
@@ -240,11 +241,12 @@ class TestClaimExtractorExtractClaims:
             ]
         })
         
-        with patch("app.services.claim_extractor.logger") as mock_logger:
-            claims = await extractor.extract_claims(text)
-            
-            assert len(claims) == 0
-            mock_logger.warning.assert_called()
+        claims = await extractor.extract_claims(text)
+        
+        # Auto-correction finds the text at position 0
+        assert len(claims) == 1
+        assert claims[0].start_index == 0
+        assert claims[0].end_index == 26
     
     @pytest.mark.asyncio
     async def test_extract_claims_filters_substring_mismatch(self, extractor, mock_llm_client):
