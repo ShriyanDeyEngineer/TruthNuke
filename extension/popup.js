@@ -60,20 +60,37 @@ async function detectPlatformStatus() {
 
   const match = SUPPORTED_SITES.find((s) => url.includes(s.pattern));
 
+  // Check if content script is alive on this page
+  let contentScriptAlive = false;
+  let detectedPlatform = null;
+  try {
+    const response = await chrome.tabs.sendMessage(currentTabId, { type: "PING" });
+    if (response?.status === "alive") {
+      contentScriptAlive = true;
+      detectedPlatform = response.platform;
+    }
+  } catch {
+    // Content script not loaded
+  }
+
   if (match) {
     pill.classList.add("active");
     pill.classList.remove("inactive");
     pill.querySelector(".status-text").textContent = "Active";
     label.textContent = `Monitoring ${match.icon} ${match.name}`;
-
-    try {
-      const response = await chrome.tabs.sendMessage(currentTabId, { type: "PING" });
-      if (response?.status === "alive") {
-        pill.querySelector(".status-text").textContent = "Active";
-      }
-    } catch {
-      pill.querySelector(".status-text").textContent = "Loading...";
-    }
+  } else if (contentScriptAlive && detectedPlatform) {
+    // Generic site detected by content script
+    pill.classList.add("active");
+    pill.classList.remove("inactive");
+    pill.querySelector(".status-text").textContent = "Active";
+    const hostname = new URL(url).hostname.replace("www.", "");
+    label.textContent = `Monitoring 🌐 ${hostname}`;
+  } else if (url.startsWith("http")) {
+    pill.classList.add("active");
+    pill.classList.remove("inactive");
+    pill.querySelector(".status-text").textContent = "Scanning...";
+    const hostname = new URL(url).hostname.replace("www.", "");
+    label.textContent = `Checking ${hostname} for financial content`;
   } else {
     pill.classList.add("inactive");
     pill.classList.remove("active");

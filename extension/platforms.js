@@ -676,6 +676,7 @@ const PLATFORMS = {
 /**
  * Detect which platform we're currently on.
  * Returns the platform adapter object or null.
+ * Falls back to a generic website adapter for any site with article content.
  */
 function detectPlatform() {
   for (const [key, platform] of Object.entries(PLATFORMS)) {
@@ -684,5 +685,69 @@ function detectPlatform() {
       return { key, ...platform };
     }
   }
+
+  // Generic fallback — works on any website with article/news content
+  const hasArticleContent = !!(
+    document.querySelector("article") ||
+    (document.querySelector("h1") && document.querySelectorAll("p").length >= 3)
+  );
+
+  if (hasArticleContent) {
+    console.log(`🛡️ TruthNuke: Using generic adapter for ${location.hostname}`);
+    return {
+      key: "generic",
+      name: location.hostname.replace("www.", ""),
+      isNews: true,
+
+      getPostElements: () => {
+        const article = document.querySelector("article");
+        if (article) return [article];
+        const main = document.querySelector("main, [role='main']");
+        if (main) return [main];
+        return [];
+      },
+
+      getPostId: () => location.href,
+
+      getPostText: (el) => extractArticleText(el),
+
+      getAuthor: () => {
+        // Try common author selectors across news sites
+        const selectors = [
+          '[rel="author"]',
+          'a[href*="/author/"]',
+          'a[href*="/authors/"]',
+          'a[href*="/contributor/"]',
+          'a[href*="/writers/"]',
+          '.author a', '.author-name', '.byline a',
+          '[class*="author"] a', '[class*="byline"] a',
+          'meta[name="author"]',
+        ];
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const name = el.content || el.textContent?.trim();
+            if (name && name.length > 1 && name.length < 100) {
+              return { handle: name, displayName: name };
+            }
+          }
+        }
+        return {
+          handle: location.hostname.replace("www.", ""),
+          displayName: location.hostname.replace("www.", ""),
+        };
+      },
+
+      getBadgeTarget: () => {
+        // Place badge near the headline
+        const h1 = document.querySelector("h1");
+        if (h1?.parentElement) return h1.parentElement;
+        const article = document.querySelector("article");
+        if (article) return article;
+        return null;
+      },
+    };
+  }
+
   return null;
 }
