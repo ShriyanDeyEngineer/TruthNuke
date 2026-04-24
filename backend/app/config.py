@@ -58,12 +58,12 @@ class Settings(BaseSettings):
         description="LLM model to use for inference",
     )
     llm_timeout: float = Field(
-        default=30.0,
+        default=60.0,
         description="Timeout in seconds for LLM API calls",
         gt=0,
     )
     llm_max_retries: int = Field(
-        default=3,
+        default=1,
         description="Maximum number of retries for LLM API calls",
         ge=0,
     )

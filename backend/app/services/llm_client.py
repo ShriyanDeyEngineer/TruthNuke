@@ -75,9 +75,9 @@ class LLMClient:
     """
     
     # Retry configuration constants
-    BASE_DELAY_SECONDS = 1.0
+    BASE_DELAY_SECONDS = 0.5
     BACKOFF_MULTIPLIER = 2.0
-    MAX_DELAY_SECONDS = 10.0
+    MAX_DELAY_SECONDS = 5.0
     
     # HTTP status codes that are retryable
     RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
@@ -111,9 +111,11 @@ class LLMClient:
         self.max_retries = max_retries
         
         # Initialize the async OpenAI client
+        # Disable the OpenAI SDK's own retry logic — we handle retries ourselves
         client_kwargs: dict = {
             "api_key": self.api_key,
             "timeout": self.timeout,
+            "max_retries": 0,
         }
         if base_url:
             client_kwargs["base_url"] = base_url

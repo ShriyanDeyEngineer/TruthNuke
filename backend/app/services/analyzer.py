@@ -233,10 +233,10 @@ class Analyzer:
         claims: list[Claim] = []
         if self.claim_extractor:
             claims = await self.claim_extractor.extract_claims(normalized_text)
-            # Limit to 5 most important claims to keep response times reasonable
-            if len(claims) > 5:
-                logger.info(f"Limiting {len(claims)} claims to top 5")
-                claims = claims[:5]
+            # Limit to 3 most important claims to keep response times reasonable
+            if len(claims) > 3:
+                logger.info(f"Limiting {len(claims)} claims to top 3")
+                claims = claims[:3]
             logger.info(f"Extracted {len(claims)} claims")
         
         # Handle no claims found (Req 12.1)
@@ -255,18 +255,37 @@ class Analyzer:
                 sources=[],
             )
         
-        # Step 4: Retrieve evidence for each claim (Req 3.1)
+        # Step 4: Retrieve evidence for all claims in parallel (Req 3.1)
         evidence_map: dict[str, EvidenceSet] = {}
         all_sources: list[SearchResult] = []
         
         if self.rag_pipeline:
-            for claim in claims:
+            import asyncio
+            
+            async def _retrieve_one(claim: Claim) -> tuple[str, EvidenceSet]:
                 evidence = await self.rag_pipeline.retrieve_evidence(claim)
-                evidence_map[claim.id] = evidence
+                return claim.id, evidence
+            
+            results = await asyncio.gather(
+                *[_retrieve_one(c) for c in claims],
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"Evidence retrieval failed: {result}")
+                    continue
+                claim_id, evidence = result
+                evidence_map[claim_id] = evidence
                 all_sources.extend(evidence.results)
                 logger.debug(
-                    f"Retrieved {len(evidence.results)} sources for claim {claim.id}"
+                    f"Retrieved {len(evidence.results)} sources for claim {claim_id}"
                 )
+            # Fill in empty evidence for any claims that failed
+            for claim in claims:
+                if claim.id not in evidence_map:
+                    evidence_map[claim.id] = EvidenceSet(
+                        results=[], insufficient_evidence=True
+                    )
         else:
             # No RAG pipeline - use empty evidence
             for claim in claims:
@@ -274,18 +293,31 @@ class Analyzer:
                     results=[], insufficient_evidence=True
                 )
         
-        # Step 5: Classify each claim (Req 5.1)
+        # Step 5: Classify each claim in parallel (Req 5.1)
         classifications: dict[str, ClassificationResult] = {}
         
         if self.classifier:
-            for claim in claims:
+            import asyncio
+            
+            async def _classify_one(claim: Claim) -> tuple[str, ClassificationResult]:
                 evidence = evidence_map.get(
                     claim.id, EvidenceSet(results=[], insufficient_evidence=True)
                 )
-                classification = await self.classifier.classify(claim, evidence)
-                classifications[claim.id] = classification
+                result = await self.classifier.classify(claim, evidence)
+                return claim.id, result
+            
+            results = await asyncio.gather(
+                *[_classify_one(c) for c in claims],
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"Classification failed for a claim: {result}")
+                    continue
+                claim_id, classification = result
+                classifications[claim_id] = classification
                 logger.debug(
-                    f"Classified claim {claim.id} as {classification.label.value}"
+                    f"Classified claim {claim_id} as {classification.label.value}"
                 )
         else:
             # No classifier - use default classification
