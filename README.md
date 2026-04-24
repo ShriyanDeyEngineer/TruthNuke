@@ -23,7 +23,7 @@ A browser extension that analyzes financial advice on social media and rates the
 
 **Quickest way:** Download the pre-packaged extension zip, unzip it, and load it into Chrome.
 
-1. [**Download truthnuke-extension.zip**](https://github.com/nickcmiller/truthnuke/releases/latest/download/truthnuke-extension.zip) (or grab it from the repo root)
+1. [**Download truthnuke-extension.zip**](https://github.com/ShriyanDeyEngineer/TruthNuke/releases/latest/download/truthnuke-extension.zip) (or grab it from the repo root)
 2. Unzip the file — you'll get an `extension/` folder
 3. Open Chrome → `chrome://extensions/` → enable **Developer mode** (top right)
 4. Click **Load unpacked** → select the unzipped `extension` folder
