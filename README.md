@@ -2,6 +2,9 @@
 
 A browser extension that analyzes financial advice on social media and rates the trustworthiness of sources. Built to protect beginner investors from misleading influencer content.
 
+Google Folder Link (Has a demo, presentation materials, and other things):
+https://drive.google.com/drive/folders/10zaAnClkPRvY3QtVBTGJZygJr95G8V6M?usp=drive_link
+
 ## How It Works
 
 1. Extension detects finance-related posts on Twitter/X, Instagram, TikTok, and Facebook
