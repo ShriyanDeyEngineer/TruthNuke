@@ -2,7 +2,17 @@
 // Detects finance-related posts on supported platforms and injects trust badges
 // Analysis triggers when the user stops scrolling for a few seconds
 
-const API_BASE = "http://localhost:8000";
+let API_BASE = "http://localhost:8000";
+
+// Load saved API URL from extension settings (set via popup)
+chrome.storage.local.get(["apiUrl"], (data) => {
+  if (data.apiUrl) API_BASE = data.apiUrl;
+});
+
+// Update API_BASE if the user changes it in settings while the page is open
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.apiUrl?.newValue) API_BASE = changes.apiUrl.newValue;
+});
 
 const FINANCE_KEYWORDS = [
   // Market terms
