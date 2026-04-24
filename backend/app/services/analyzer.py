@@ -203,6 +203,9 @@ class Analyzer:
         6. Compute trust scores
         7. Generate explanations
         
+        If the LLM is unavailable, falls back to rule-based analysis using
+        keyword detection and risk scoring.
+        
         Args:
             text: The raw input text containing financial claims to analyze.
         
@@ -212,12 +215,6 @@ class Analyzer:
         Raises:
             ValidationError: If text is empty, whitespace-only, or exceeds
                 the maximum allowed length.
-            LLMUnavailableError: If the LLM service is unreachable.
-        
-        Example:
-            >>> response = await analyzer.analyze("The stock rose 10%.")
-            >>> print(response.trust_score)
-            75
         
         Requirements: 1.1, 1.2, 1.3, 1.4, 8.2, 12.1, 12.3, 28.1
         """
@@ -229,31 +226,32 @@ class Analyzer:
         
         logger.info(f"Starting analysis of text ({len(normalized_text)} chars)")
         
-        # Step 3: Extract claims (Req 2.1)
+        # Step 3: Extract claims with a timeout (Req 2.1)
+        # If the LLM is slow, fall back to rule-based analysis quickly.
         claims: list[Claim] = []
         if self.claim_extractor:
-            claims = await self.claim_extractor.extract_claims(normalized_text)
+            import asyncio
+            try:
+                claims = await asyncio.wait_for(
+                    self.claim_extractor.extract_claims(normalized_text),
+                    timeout=12.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Claim extraction timed out, using fallback analysis")
+                return self._fallback_analysis(normalized_text)
+            except Exception as e:
+                logger.warning(f"LLM claim extraction failed, using fallback: {e}")
+                return self._fallback_analysis(normalized_text)
+        
             # Limit to 3 most important claims to keep response times reasonable
             if len(claims) > 3:
                 logger.info(f"Limiting {len(claims)} claims to top 3")
                 claims = claims[:3]
             logger.info(f"Extracted {len(claims)} claims")
         
-        # Handle no claims found (Req 12.1)
+        # If no claims found (LLM failed or no financial content), use rule-based fallback
         if not claims:
-            logger.info("No financial claims found in text")
-            return AnalysisResponse(
-                claims=[],
-                overall_classification=None,
-                trust_score=None,
-                trust_score_breakdown=None,
-                explanation=(
-                    "No financial claims were detected in the provided text. "
-                    "The text may not contain verifiable financial assertions, "
-                    "or the claims may be too general to analyze."
-                ),
-                sources=[],
-            )
+            return self._fallback_analysis(normalized_text)
         
         # Step 4: Retrieve evidence for all claims in parallel (Req 3.1)
         evidence_map: dict[str, EvidenceSet] = {}
@@ -364,8 +362,6 @@ class Analyzer:
         explanation = ""
         
         if self.explanation_engine and trust_score_breakdown:
-            # Generate explanation for the overall analysis
-            # Use the first claim as representative for the explanation
             if claims:
                 first_claim = claims[0]
                 first_classification = classifications.get(first_claim.id)
@@ -374,13 +370,16 @@ class Analyzer:
                 )
                 
                 if first_classification:
-                    explanation = await self.explanation_engine.generate_explanation(
-                        claim=first_claim,
-                        classification=first_classification,
-                        trust_score=trust_score or 50,
-                        trust_score_breakdown=trust_score_breakdown,
-                        evidence=first_evidence,
-                    )
+                    try:
+                        explanation = await self.explanation_engine.generate_explanation(
+                            claim=first_claim,
+                            classification=first_classification,
+                            trust_score=trust_score or 50,
+                            trust_score_breakdown=trust_score_breakdown,
+                            evidence=first_evidence,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Explanation generation failed, using default: {e}")
         
         if not explanation:
             explanation = self._generate_default_explanation(
@@ -494,6 +493,132 @@ class Analyzer:
                 unique.append(source)
         
         return unique
+    
+    def _generate_default_explanation(
+        self,
+        claims: list[Claim],
+        classifications: dict[str, ClassificationResult],
+        trust_score: int | None,
+    ) -> str:
+        """Generate a default explanation when the explanation engine is unavailable.
+        
+        Args:
+            claims: List of extracted claims.
+            classifications: Mapping of claim_id to classification result.
+            trust_score: The computed trust score.
+        
+        Returns:
+            A default explanation string.
+        """
+        num_claims = len(claims)
+        
+        if trust_score is None:
+            return (
+                f"Analysis identified {num_claims} financial claim(s) in the text. "
+                "Please review the individual claim classifications and sources "
+                "to form your own conclusions."
+            )
+        
+        if trust_score >= 70:
+            trust_level = "relatively high"
+            advice = "The claims appear to be generally supported by available evidence."
+        elif trust_score >= 40:
+            trust_level = "moderate"
+            advice = "Some claims may require additional verification."
+        else:
+            trust_level = "low"
+            advice = "Exercise caution and verify claims through additional sources."
+        
+        return (
+            f"Analysis identified {num_claims} financial claim(s) with a {trust_level} "
+            f"trust score of {trust_score}/100. {advice} "
+            "Please review the referenced sources to form your own conclusions."
+        )
+    
+    def _fallback_analysis(self, text: str) -> AnalysisResponse:
+        """Produce a rule-based analysis when the LLM is unavailable.
+        
+        Uses keyword detection, phrase pattern matching, and risk scoring
+        to provide a useful result without any LLM calls.
+        
+        Args:
+            text: The normalized input text.
+        
+        Returns:
+            AnalysisResponse with rule-based scores and explanation.
+        """
+        from app.services.risk_scorer import (
+            compute_risk_score,
+            scan_keywords,
+            scan_phrases,
+        )
+        
+        risk_result = compute_risk_score(text, claims=[], classifications=None)
+        kw = scan_keywords(text)
+        phrases = scan_phrases(text)
+        
+        # Derive a trust score from the risk score (inverse relationship)
+        # risk 0 → trust 75, risk 6+ → trust 25
+        trust_score = max(20, min(80, 75 - risk_result.risk_score * 5))
+        
+        # Build explanation from signals
+        parts = []
+        if risk_result.risk_level == "high":
+            parts.append(
+                "This content contains several high-risk signals commonly "
+                "associated with misleading financial advice."
+            )
+        elif risk_result.risk_level == "medium":
+            parts.append(
+                "This content contains some signals that warrant caution."
+            )
+        else:
+            parts.append(
+                "This content does not show strong signals of financial misinformation."
+            )
+        
+        if kw.hype:
+            parts.append(f"Hype language detected: {', '.join(kw.hype[:4])}.")
+        if phrases:
+            parts.append(f"Risky phrases found: {', '.join(phrases[:3])}.")
+        if kw.neutral:
+            parts.append("Some neutral/institutional language is present, which is a positive sign.")
+        
+        parts.append(
+            "Note: This is a quick rule-based analysis. "
+            "Full AI-powered analysis was unavailable."
+        )
+        
+        explanation = " ".join(parts)
+        
+        risk_assessment = RiskAssessment(
+            risk_score=risk_result.risk_score,
+            risk_level=risk_result.risk_level,
+            signals=risk_result.signals,
+            explanation=risk_result.explanation,
+        )
+        
+        breakdown = TrustScoreBreakdown(
+            source_credibility=50,
+            evidence_strength=50,
+            language_neutrality=max(20, 80 - len(kw.hype) * 15),
+            cross_source_agreement=50,
+        )
+        
+        logger.info(
+            f"Fallback analysis complete: trust_score={trust_score}, "
+            f"risk={risk_result.risk_level}"
+        )
+        
+        return AnalysisResponse(
+            claims=[],
+            overall_classification=None,
+            trust_score=trust_score,
+            trust_score_breakdown=breakdown,
+            explanation=explanation,
+            sources=[],
+            risk_assessment=risk_assessment,
+        )
     
     def _generate_default_explanation(
         self,

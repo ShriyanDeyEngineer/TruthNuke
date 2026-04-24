@@ -44,6 +44,18 @@ To re-package the extension after making changes:
 ### Backend
 
 ```bash
+# Easy way — runs in the background, survives terminal closure:
+./start-backend.sh
+
+# Check status / view logs / stop:
+./start-backend.sh status
+./start-backend.sh logs
+./start-backend.sh stop
+```
+
+Or run manually:
+
+```bash
 cd backend
 python -m venv venv
 source venv/bin/activate

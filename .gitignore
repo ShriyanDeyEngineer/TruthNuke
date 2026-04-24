@@ -28,3 +28,7 @@ Thumbs.db
 
 # Packaged extension
 truthnuke-extension.zip
+
+# Backend runtime
+.backend.pid
+backend.log
