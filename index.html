@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruthNuke — Social Media Finance Checker</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0b0b1a;
+      --surface: #1a1a2e;
+      --border: #2a2a4a;
+      --text: #e0e0e0;
+      --text-muted: #6b7280;
+      --text-dim: #4b5563;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --blue: #3b82f6;
+      --purple: #6366f1;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .hero-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 40%, var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .tagline {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 32px;
+    }
+
+    .hero-badges {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .cta-group {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Section ── */
+    .section {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
+
+    .section h2 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .section .section-sub {
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+
+    /* ── How It Works ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 20px;
+      text-align: center;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--purple);
+      font-weight: 800;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .step-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .step h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .step p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Install Guide ── */
+    .install-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .install-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .install-card .install-sub {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .install-steps {
+      list-style: none;
+      counter-reset: install;
+    }
+
+    .install-steps li {
+      counter-increment: install;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+
+    .install-steps li:last-child {
+      border-bottom: none;
+    }
+
+    .install-steps li::before {
+      content: counter(install);
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--blue);
+      font-weight: 700;
+      font-size: 13px;
+      margin-top: 1px;
+    }
+
+    code {
+      background: #12122a;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--green);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    pre {
+      background: #12122a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      margin: 12px 0;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* ── Platforms ── */
+    .platforms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .platform-card .platform-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .platform-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .platform-card p {
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    /* ── Trust Badges Demo ── */
+    .badge-demo {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+
+    .demo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .demo-badge.high {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+
+    .demo-badge.medium {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+    }
+
+    .demo-badge.low {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text-dim);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .footer a {
+      color: var(--text-muted);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .hero { padding: 48px 20px 40px; }
+      .hero h1 { font-size: 32px; }
+      .hero .tagline { font-size: 16px; }
+      .section h2 { font-size: 24px; }
+      .install-card { padding: 20px; }
+      .cta-group { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-logo">🛡️</div>
+    <h1>TruthNuke</h1>
+    <p class="tagline">A browser extension that analyzes financial advice on social media and rates the trustworthiness of sources.</p>
+
+    <div class="hero-badges">
+      <span class="hero-badge">🧩 Chrome Extension</span>
+      <span class="hero-badge">🤖 AI-Powered</span>
+      <span class="hero-badge">⚡ Real-Time</span>
+      <span class="hero-badge">🆓 Free &amp; Open Source</span>
+    </div>
+
+    <div class="cta-group">
+      <a href="https://github.com/nickcmiller/truthnuke/releases/latest/download/truthnuke-extension.zip" class="btn btn-primary" id="downloadBtn">
+        ⬇️ Download Extension (.zip)
+      </a>
+      <a href="#install" class="btn btn-secondary">
+        📖 Install Guide
+      </a>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="section">
+    <h2>How It Works</h2>
+    <p class="section-sub">TruthNuke runs quietly in the background while you browse social media.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-icon">🔍</div>
+        <h3>Detects Posts</h3>
+        <p>Automatically finds finance-related posts as you scroll through your feed.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-icon">🧠</div>
+        <h3>AI Analysis</h3>
+        <p>Extracts claims, detects manipulation tactics, and cross-references market data.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-icon">🏷️</div>
+        <h3>Trust Badge</h3>
+        <p>Displays a trust rating directly on the post so you know what to watch out for.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-icon">📋</div>
+        <h3>Detailed Breakdown</h3>
+        <p>Click any badge for a full report with claim-by-claim analysis and sources.</p>
+      </div>
+    </div>
+
+    <div class="badge-demo">
+      <span class="demo-badge high">✅ Trustworthy — 85</span>
+      <span class="demo-badge medium">⚠️ Caution — 52</span>
+      <span class="demo-badge low">🚩 Unreliable — 23</span>
+    </div>
+  </section>
+
+  <!-- Supported Platforms -->
+  <section class="section">
+    <h2>Supported Platforms</h2>
+    <p class="section-sub">Works on the sites where financial advice spreads the fastest.</p>
+
+    <div class="platforms-grid">
+      <div class="platform-card">
+        <div class="platform-icon">𝕏</div>
+        <h4>Twitter / X</h4>
+        <p>✅ Supported</p>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">📸</div>
+        <h4>Instagram</h4>
+        <p>✅ Supported</p>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">🎵</div>
+        <h4>TikTok</h4>
+        <p>✅ Supported</p>
+      </div>
+      <div class="platform-card">
+        <div class="platform-icon">📘</div>
+        <h4>Facebook</h4>
+        <p>✅ Supported</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install Guide -->
+  <section class="section" id="install">
+    <h2>Install Guide</h2>
+    <p class="section-sub">Get up and running in under 2 minutes.</p>
+
+    <!-- Option A: Download ZIP -->
+    <div class="install-card">
+      <h3>Option A — Download the ZIP</h3>
+      <p class="install-sub">Easiest way to get started. No git or terminal needed.</p>
+      <ol class="install-steps">
+        <li>Click the <strong>Download Extension</strong> button above, or grab the latest <code>truthnuke-extension.zip</code> from <a href="https://github.com/nickcmiller/truthnuke/releases">GitHub Releases</a>.</li>
+        <li>Unzip the downloaded file. You'll get a folder called <code>extension</code>.</li>
+        <li>Open Chrome and go to <code>chrome://extensions/</code></li>
+        <li>Turn on <strong>Developer mode</strong> using the toggle in the top-right corner.</li>
+        <li>Click <strong>Load unpacked</strong> and select the unzipped <code>extension</code> folder.</li>
+        <li>Done! Navigate to Twitter/X, Instagram, TikTok, or Facebook. TruthNuke badges will appear on financial posts.</li>
+      </ol>
+    </div>
+
+    <!-- Option B: Clone from GitHub -->
+    <div class="install-card">
+      <h3>Option B — Clone from GitHub</h3>
+      <p class="install-sub">For developers who want the full source and backend.</p>
+      <ol class="install-steps">
+        <li>
+          Clone the repository:
+          <pre><code>git clone https://github.com/nickcmiller/truthnuke.git
+cd truthnuke</code></pre>
+        </li>
+        <li>
+          Start the backend:
+          <pre><code>cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Add your ANTHROPIC_API_KEY to .env
+python3 main.py</code></pre>
+        </li>
+        <li>Open Chrome → <code>chrome://extensions/</code> → enable <strong>Developer mode</strong>.</li>
+        <li>Click <strong>Load unpacked</strong> → select the <code>extension/</code> folder from the cloned repo.</li>
+        <li>The extension connects to <code>http://localhost:8000</code> by default. You can change this in the extension popup settings.</li>
+      </ol>
+    </div>
+
+    <!-- API Keys -->
+    <div class="install-card">
+      <h3>API Keys</h3>
+      <p class="install-sub">The backend needs at least one API key to run AI analysis.</p>
+      <table style="width:100%; font-size:14px; border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border); text-align:left;">
+            <th style="padding:8px 0; color:var(--text-muted);">Key</th>
+            <th style="padding:8px 0; color:var(--text-muted);">Source</th>
+            <th style="padding:8px 0; color:var(--text-muted);">Required</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:10px 0;"><code>ANTHROPIC_API_KEY</code></td>
+            <td style="padding:10px 0;"><a href="https://console.anthropic.com">console.anthropic.com</a></td>
+            <td style="padding:10px 0;">Yes</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;"><code>ALPHA_VANTAGE_API_KEY</code></td>
+            <td style="padding:10px 0;"><a href="https://www.alphavantage.co/support/#api-key">alphavantage.co</a></td>
+            <td style="padding:10px 0;">Optional (free tier)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>TruthNuke does not provide financial advice. Always do your own research.</p>
+    <p style="margin-top:8px;">
+      <a href="https://github.com/nickcmiller/truthnuke">GitHub</a> · 
+      MIT License · 
+      Built with FastAPI + Claude
+    </p>
+  </footer>
+
+  <script>
+    // Update download link to use local zip if opened locally
+    const downloadBtn = document.getElementById('downloadBtn');
+    if (window.location.protocol === 'file:') {
+      downloadBtn.href = 'truthnuke-extension.zip';
+    }
+  </script>
+</body>
+</html>

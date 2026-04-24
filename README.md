@@ -19,7 +19,27 @@ A browser extension that analyzes financial advice on social media and rates the
 | TikTok | ✅ | For You page, video pages |
 | Facebook | ✅ | News feed posts |
 
-## Quick Start
+## Download & Install
+
+**Quickest way:** Download the pre-packaged extension zip, unzip it, and load it into Chrome.
+
+1. [**Download truthnuke-extension.zip**](https://github.com/nickcmiller/truthnuke/releases/latest/download/truthnuke-extension.zip) (or grab it from the repo root)
+2. Unzip the file — you'll get an `extension/` folder
+3. Open Chrome → `chrome://extensions/` → enable **Developer mode** (top right)
+4. Click **Load unpacked** → select the unzipped `extension` folder
+5. Browse Twitter/X, Instagram, TikTok, or Facebook — trust badges appear on financial posts
+
+> **Landing page:** Open `index.html` in your browser for a visual install guide.
+
+To re-package the extension after making changes:
+
+```bash
+./package-extension.sh
+```
+
+---
+
+## Quick Start (Full Setup)
 
 ### Backend
 

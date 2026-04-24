@@ -25,3 +25,6 @@ frontend/.next/
 # OS
 .DS_Store
 Thumbs.db
+
+# Packaged extension
+truthnuke-extension.zip
